@@ -77,6 +77,21 @@ Every reservation copies the accepted terms at acceptance time:
   immutable snapshot columns and stay stable across later offer or point
   edits.
 
+## Consumer/supplier cancellation with exact release (P03-04, INV-007)
+
+- `Command::CancelReservation` (or `POST /api/v1/reservations/{id}/cancel/`
+  with `{ reason }`) cancels a `confirmed` reservation. The consumer holder,
+  the supplier owner or a moderator may cancel; outsiders receive `403` and
+  anonymous writes are stopped by the session gate.
+- A canonical reason (5–1000 characters) is mandatory. The reservation's
+  exact committed units move back to `available` once; `disposed` and
+  `fulfilled` buckets are untouched and stay exact.
+- Terminal protection: only `confirmed` reservations can be cancelled.
+  Duplicate, replayed, concurrent-double, expired or already `picked_up`
+  cancellations are rejected without moving stock or auditing twice, and
+  handed-over goods never return automatically. Launch pays no refund:
+  cancellation releases units only, never money.
+
 ## Audit and replay (INV-060, INV-061)
 
 Each confirmation records a `reservation_confirmed` audit fact with the prior

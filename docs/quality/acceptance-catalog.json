@@ -201,7 +201,14 @@
         "backend/tests/p03_02.rs::parallel_free_offers_cannot_bypass_free_reservation_cap",
         "backend/tests/p03_02.rs::identical_retry_persists_a_single_reservation",
         "backend/tests/p03_02.rs::failed_confirm_rolls_back_buckets_and_writes_no_audit",
-        "backend/tests/p03_02.rs::confirm_rejects_self_reservation_and_ineligible_accounts"
+        "backend/tests/p03_02.rs::confirm_rejects_self_reservation_and_ineligible_accounts",
+        "backend/tests/p03_04.rs::holder_cancels_with_exact_release_and_audit",
+        "backend/tests/p03_04.rs::supplier_owner_and_moderator_cancel_with_attribution",
+        "backend/tests/p03_04.rs::outsider_cannot_cancel_and_state_is_untouched",
+        "backend/tests/p03_04.rs::duplicate_cancel_and_replay_never_double_release",
+        "backend/tests/p03_04.rs::concurrent_cancels_release_exactly_once",
+        "backend/tests/p03_04.rs::terminal_and_handed_over_reservations_cannot_cancel",
+        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency"
       ],
       "evidence_kind": "reservation_atomicity_and_cap_coverage",
       "verification": null,
@@ -277,10 +284,19 @@
     {
       "id": "INV-007",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p03_04.rs::holder_cancels_with_exact_release_and_audit",
+        "backend/tests/p03_04.rs::supplier_owner_and_moderator_cancel_with_attribution",
+        "backend/tests/p03_04.rs::outsider_cannot_cancel_and_state_is_untouched",
+        "backend/tests/p03_04.rs::duplicate_cancel_and_replay_never_double_release",
+        "backend/tests/p03_04.rs::concurrent_cancels_release_exactly_once",
+        "backend/tests/p03_04.rs::terminal_and_handed_over_reservations_cannot_cancel",
+        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency"
+      ],
+      "evidence_kind": "reservation_cancellation_coverage",
+      "verification": null,
+      "limitations": "P03-04 proves exact once-only committed-to-available release with terminal protection; expiry automation remains in P03-05."
     },
     {
       "id": "INV-008",
@@ -792,7 +808,14 @@
         "backend/tests/concurrency.rs::same_command_identity_commits_one_supplier_event_and_audit",
         "backend/tests/integration.rs::command_replay_conflict_actor_scope_and_rollback",
         "backend/tests/p02_05.rs::edit_and_withdraw_replay_idempotency",
-        "backend/tests/p03_02.rs::identical_retry_persists_a_single_reservation"
+        "backend/tests/p03_02.rs::identical_retry_persists_a_single_reservation",
+        "backend/tests/p03_04.rs::holder_cancels_with_exact_release_and_audit",
+        "backend/tests/p03_04.rs::supplier_owner_and_moderator_cancel_with_attribution",
+        "backend/tests/p03_04.rs::outsider_cannot_cancel_and_state_is_untouched",
+        "backend/tests/p03_04.rs::duplicate_cancel_and_replay_never_double_release",
+        "backend/tests/p03_04.rs::concurrent_cancels_release_exactly_once",
+        "backend/tests/p03_04.rs::terminal_and_handed_over_reservations_cannot_cancel",
+        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency"
       ],
       "evidence_kind": "reservation_replay_coverage",
       "verification": null,

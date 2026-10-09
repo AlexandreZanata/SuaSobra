@@ -496,6 +496,34 @@ async fn dispatch(
             vec![],
         ));
     }
+    if segments.len() == 5
+        && segments[..3] == ["api", "v1", "reservations"]
+        && segments[4] == "cancel"
+        && method == Method::POST
+    {
+        let id = uuid(segments[3])?;
+        let viewer = identity::user(state, session).await?;
+        let key = headers
+            .get("idempotency-key")
+            .map(|v| {
+                v.to_str()
+                    .map_err(|_| AppError::validation("Invalid Idempotency-Key"))
+            })
+            .transpose()?;
+        let mut cancel_input: reservations::CancelReservationInput = serde_json::from_value(input)
+            .map_err(|e| AppError::validation(format!("Invalid cancel payload: {e}")))?;
+        if cancel_input.reservation_id.is_none() {
+            cancel_input.reservation_id = Some(id);
+        }
+        let (code, result) = reservations::execute(
+            state,
+            &viewer,
+            key,
+            reservations::Command::CancelReservation(cancel_input),
+        )
+        .await?;
+        return Ok((code.as_u16(), result, vec![]));
+    }
     if path.starts_with("/api/v1/auth/") || ["/api/v1/health/", "/api/v1/schema/"].contains(&path) {
         return Err(AppError::new(
             StatusCode::METHOD_NOT_ALLOWED,

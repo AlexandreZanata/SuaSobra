@@ -50,9 +50,33 @@ pub struct ReserveNowInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CancelReservationInput {
+    #[serde(default)]
+    pub reservation_id: Option<Uuid>,
+    pub reason: String,
+}
+
+fn validate_cancel_reason(reason: &str) -> Result<String> {
+    let trimmed = reason.trim();
+    if trimmed.chars().count() < 5 {
+        return Err(AppError::validation(
+            "A cancellation reason of at least 5 characters is required (INV-012)",
+        ));
+    }
+    if trimmed.chars().count() > 1000 {
+        return Err(AppError::validation(
+            "Cancellation reason must be at most 1000 characters",
+        ));
+    }
+    Ok(trimmed.to_owned())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum Command {
     ReserveNow(ReserveNowInput),
+    CancelReservation(CancelReservationInput),
 }
 
 /// Reserve whole units on a published offer with immediate confirmation.
@@ -71,7 +95,12 @@ pub async fn execute(
     idempotency_key: Option<&str>,
     command: Command,
 ) -> Result<(StatusCode, Value)> {
-    let Command::ReserveNow(input) = command;
+    if let Command::CancelReservation(input) = command {
+        return execute_cancel(state, actor, idempotency_key, input).await;
+    }
+    let Command::ReserveNow(input) = command else {
+        return Err(AppError::internal());
+    };
     let offer_id = input
         .offer_id
         .ok_or_else(|| AppError::validation("offer_id is required to reserve quantity"))?;
@@ -457,4 +486,162 @@ pub async fn list_supplier_reservations(
     .fetch_all(pool)
     .await
     .map_err(Into::into)
+}
+
+/// Cancel a confirmed reservation with exact quantity effects.
+///
+/// The consumer holder, the supplier owner or a moderator may cancel with a
+/// canonical reason. The reservation's exact committed units move back to
+/// available exactly once (INV-007): only `confirmed` reservations can be
+/// cancelled, so duplicate, late terminal or handover-after cancellations are
+/// rejected without moving stock or auditing twice. Goods already handed over
+/// (`picked_up`) never return automatically, and launch pays no refund
+/// (ADR-002): cancellation only releases units, never money.
+async fn execute_cancel(
+    state: &AppState,
+    actor: &User,
+    idempotency_key: Option<&str>,
+    input: CancelReservationInput,
+) -> Result<(StatusCode, Value)> {
+    let reservation_id = input
+        .reservation_id
+        .ok_or_else(|| AppError::validation("reservation_id is required to cancel"))?;
+    let reason = validate_cancel_reason(&input.reason)?;
+
+    let mut tx = state.pool.begin().await?;
+    let actor = identity::lock_actor(&mut tx, actor.id).await?;
+
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
+    let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
+    let (replay, cached) = Replay::begin(
+        &mut tx,
+        actor.id,
+        "cancel_reservation",
+        idempotency_key,
+        &command_json,
+    )
+    .await?;
+    if let Some((code, payload)) = cached {
+        return Ok((
+            StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+            payload,
+        ));
+    }
+
+    // Consumer-before-supplier-before-offer-before-reservation row locks:
+    // resolve linkage without locking, then lock in authority order.
+    let linkage: Option<(Uuid, Uuid)> =
+        sqlx::query_as("SELECT offer_id, consumer_id FROM suasobra.reservations WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let (offer_id, consumer_id) = linkage.ok_or_else(AppError::missing)?;
+
+    let supplier_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT supplier_id FROM suasobra.offers WHERE id=$1")
+            .bind(offer_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let supplier_id = supplier_id.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
+    let owner_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT owner_id FROM suasobra.suppliers WHERE id=$1 FOR UPDATE")
+            .bind(supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let owner_id = owner_id.ok_or_else(AppError::missing)?;
+
+    let is_holder = actor.id == consumer_id;
+    let is_owner = actor.id == owner_id;
+    if !is_holder && !is_owner && !actor.moderator() {
+        return Err(AppError::forbidden());
+    }
+
+    lock.acquire(Authority::Offer, &offer_id.to_string())?;
+    let offer: Option<Offer> =
+        sqlx::query_as("SELECT * FROM suasobra.offers WHERE id=$1 FOR UPDATE")
+            .bind(offer_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let offer = offer.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
+    let reservation_row: Option<(String, i64, String)> = sqlx::query_as(
+        "SELECT status, quantity, accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+    )
+    .bind(reservation_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let (status, quantity, policy_version) = reservation_row.ok_or_else(AppError::missing)?;
+
+    // Terminal protection (INV-007): exactly one release per quantity.
+    if status != "confirmed" {
+        return Err(AppError::conflict(format!(
+            "Only confirmed reservations can be cancelled; current status is '{status}'"
+        )));
+    }
+
+    let new_available = offer
+        .available_quantity
+        .checked_add(quantity)
+        .ok_or_else(|| AppError::validation("Bucket quantity overflow"))?;
+    let new_committed = offer
+        .committed_quantity
+        .checked_sub(quantity)
+        .ok_or_else(AppError::internal)?;
+    let prior_val: Value =
+        sqlx::query_scalar("SELECT to_jsonb(r) FROM suasobra.reservations r WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_one(&mut *tx)
+            .await?;
+    sqlx::query(
+        "UPDATE suasobra.offers SET available_quantity=$2, committed_quantity=$3, updated_at=now() WHERE id=$1",
+    )
+    .bind(offer_id)
+    .bind(new_available)
+    .bind(new_committed)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("UPDATE suasobra.reservations SET status='cancelled' WHERE id=$1")
+        .bind(reservation_id)
+        .execute(&mut *tx)
+        .await?;
+
+    let resulting_val: Value =
+        sqlx::query_scalar("SELECT to_jsonb(r) FROM suasobra.reservations r WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+    let mut fact = AuditFact {
+        entity_type: "reservation".into(),
+        entity_id: reservation_id.to_string(),
+        action: "reservation_cancelled".into(),
+        actor_id: Some(actor.id),
+        actor_scope: if is_holder {
+            "consumer"
+        } else if is_owner {
+            "supplier_owner"
+        } else {
+            "moderator"
+        }
+        .into(),
+        authority_or_policy: policy_version,
+        evidence_kind: "participant_acknowledgment".into(),
+        reason,
+        prior_state: prior_val,
+        resulting_state: resulting_val.clone(),
+        prior_quantity: Some(offer.available_quantity),
+        resulting_quantity: Some(new_available),
+        quantity_delta: Some(quantity),
+        ..Default::default()
+    };
+    fact.record(&mut tx, None).await?;
+
+    replay.finish(&mut tx, 200, &resulting_val).await?;
+    tx.commit().await?;
+    Ok((StatusCode::OK, resulting_val))
 }
