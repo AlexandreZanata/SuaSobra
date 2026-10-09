@@ -314,18 +314,25 @@
     {
       "id": "INV-016",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_02.rs::rejects_empty_or_unsubstantiated_surplus_classification",
+        "backend/tests/p02_02.rs::valid_draft_with_substantiated_surplus_and_safety_disclosures_persists"
+      ],
+      "evidence_kind": "surplus_draft_and_condition_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover draft surplus classification validation and persistence; publication checks remain pending in subsequent tasks."
     },
     {
       "id": "INV-017",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_02.rs::zero_price_does_not_exempt_safety_and_condition_checks"
+      ],
+      "evidence_kind": "surplus_draft_and_condition_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover zero-price safety and condition parity on draft offers; publication pricing remains pending in subsequent tasks."
     },
     {
       "id": "INV-018",
@@ -716,10 +723,13 @@
     {
       "id": "INV-063",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_02.rs::food_disclosures_cannot_conceal_age_expiry_storage_or_allergens"
+      ],
+      "evidence_kind": "surplus_draft_and_condition_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover mandatory age, expiry, storage, and allergen disclosures on food drafts; consumer discovery rendering remains pending in subsequent tasks."
     },
     {
       "id": "INV-064",
