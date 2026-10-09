@@ -220,7 +220,13 @@
         "backend/tests/p04_03.rs::single_unit_reservation_cannot_split_but_full_pickup_still_works",
         "backend/tests/p04_03.rs::partial_then_duplicate_and_late_full_conserve_units",
         "backend/tests/p04_03.rs::concurrent_partial_handovers_yield_one_pickup",
-        "backend/tests/p04_03.rs::http_partial_route_serves_owner_and_rejects_bad_payload"
+        "backend/tests/p04_03.rs::http_partial_route_serves_owner_and_rejects_bad_payload",
+        "backend/tests/p04_05.rs::full_pickup_vs_holder_cancel_race_has_one_winner",
+        "backend/tests/p04_05.rs::partial_vs_cancel_race_conserves_units",
+        "backend/tests/p04_05.rs::full_vs_partial_same_proof_race_yields_one_handover",
+        "backend/tests/p04_05.rs::expiry_and_cancel_agree_on_past_window",
+        "backend/tests/p04_05.rs::concurrent_duplicate_declarations_collapse_to_one",
+        "backend/tests/p04_05.rs::failed_commands_leave_no_success_record"
       ],
       "evidence_kind": "reservation_atomicity_and_cap_coverage",
       "verification": null,
@@ -339,7 +345,13 @@
         "backend/tests/p04_03.rs::single_unit_reservation_cannot_split_but_full_pickup_still_works",
         "backend/tests/p04_03.rs::partial_then_duplicate_and_late_full_conserve_units",
         "backend/tests/p04_03.rs::concurrent_partial_handovers_yield_one_pickup",
-        "backend/tests/p04_03.rs::http_partial_route_serves_owner_and_rejects_bad_payload"
+        "backend/tests/p04_03.rs::http_partial_route_serves_owner_and_rejects_bad_payload",
+        "backend/tests/p04_05.rs::full_pickup_vs_holder_cancel_race_has_one_winner",
+        "backend/tests/p04_05.rs::partial_vs_cancel_race_conserves_units",
+        "backend/tests/p04_05.rs::full_vs_partial_same_proof_race_yields_one_handover",
+        "backend/tests/p04_05.rs::expiry_and_cancel_agree_on_past_window",
+        "backend/tests/p04_05.rs::concurrent_duplicate_declarations_collapse_to_one",
+        "backend/tests/p04_05.rs::failed_commands_leave_no_success_record"
       ],
       "evidence_kind": "reservation_cancellation_coverage",
       "verification": null,
@@ -904,7 +916,13 @@
         "backend/tests/p04_02.rs::duplicate_pickup_yields_one_effect_and_replays_cleanly",
         "backend/tests/p04_02.rs::concurrent_duplicate_handovers_yield_one_pickup",
         "backend/tests/p04_02.rs::pickup_after_window_or_terminal_is_rejected",
-        "backend/tests/p04_02.rs::http_pickup_route_requires_owner_and_secret"
+        "backend/tests/p04_02.rs::http_pickup_route_requires_owner_and_secret",
+        "backend/tests/p04_05.rs::full_pickup_vs_holder_cancel_race_has_one_winner",
+        "backend/tests/p04_05.rs::partial_vs_cancel_race_conserves_units",
+        "backend/tests/p04_05.rs::full_vs_partial_same_proof_race_yields_one_handover",
+        "backend/tests/p04_05.rs::expiry_and_cancel_agree_on_past_window",
+        "backend/tests/p04_05.rs::concurrent_duplicate_declarations_collapse_to_one",
+        "backend/tests/p04_05.rs::failed_commands_leave_no_success_record"
       ],
       "evidence_kind": "reservation_replay_coverage",
       "verification": null,

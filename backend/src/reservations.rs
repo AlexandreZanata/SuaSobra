@@ -742,31 +742,42 @@ pub async fn expire_due(pool: &PgPool, now: DateTime<Utc>) -> Result<ExpiryRepor
         report.units_disposed += disposed_add as u64;
     }
 
-    let due_reservations: Vec<Uuid> = sqlx::query_scalar(
-        "SELECT id FROM suasobra.reservations WHERE status='confirmed' AND accepted_pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
+    // Sweep without locking: each row is locked below in canonical
+    // offer-before-reservation order (the same order pickup, cancel, and
+    // partial handover use). Locking the reservation in the sweep first
+    // inverts that order against concurrent commands and deadlocks.
+    let due_reservations: Vec<(Uuid, Uuid)> = sqlx::query_as(
+        "SELECT id, offer_id FROM suasobra.reservations WHERE status='confirmed' AND accepted_pickup_ends_at <= $1 ORDER BY id",
     )
     .bind(now)
     .fetch_all(&mut *tx)
     .await?;
-    for reservation_id in due_reservations {
-        let fresh: Option<(Uuid, String, i64, String)> = sqlx::query_as(
-            "SELECT offer_id, status, quantity, accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+    for (reservation_id, sweep_offer_id) in due_reservations {
+        let offer_exists: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM suasobra.offers WHERE id=$1 FOR UPDATE")
+                .bind(sweep_offer_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        let Some(offer_id) = offer_exists else {
+            continue;
+        };
+        let fresh: Option<(String, i64, String)> = sqlx::query_as(
+            "SELECT status, quantity, accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
         )
         .bind(reservation_id)
         .fetch_optional(&mut *tx)
         .await?;
-        let Some((offer_id, status, quantity, policy_version)) = fresh else {
+        let Some((status, quantity, policy_version)) = fresh else {
             continue;
         };
         if status != "confirmed" {
             continue;
         }
-        let committed: Option<i64> = sqlx::query_scalar(
-            "SELECT committed_quantity FROM suasobra.offers WHERE id=$1 FOR UPDATE",
-        )
-        .bind(offer_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+        let committed: Option<i64> =
+            sqlx::query_scalar("SELECT committed_quantity FROM suasobra.offers WHERE id=$1")
+                .bind(offer_id)
+                .fetch_optional(&mut *tx)
+                .await?;
         let committed = committed.ok_or_else(AppError::missing)?;
         let new_committed = committed
             .checked_sub(quantity)
