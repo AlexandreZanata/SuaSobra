@@ -51,3 +51,19 @@ P04-02 adds the handover command that consumes them, exposed at
 - Concurrent duplicate handovers yield one final pickup: the losers meet the
   already-`fulfilled` guard or the already-consumed proof and fail without a
   second unit effect or a second event.
+
+## Partial handover (P04-03, INV-001/INV-010/INV-011)
+
+- `Command::CompletePartialPickup` hands over a positive whole-unit count
+  strictly below the accepted quantity, so a single-unit reservation stays
+  indivisible and must use the full handover. The caller declares the
+  terminal remainder outcome: `released` (genuine surplus back to the offer
+  for re-offer) or `disposed` (perished or unsafe units to the disposed
+  bucket). Proof, buckets, `picked_up` status, audit (`partial_pickup_completed`)
+  and replay move in one transaction; conservation holds across all four
+  buckets. Exposed at `POST /v1/reservations/:id/pickup/partial` with
+  `{ "secret", "handover_quantity", "remainder" }`.
+- The accepted unit price stays fixed; only handed-over units count as goods
+  value and no refund is processed. After a partial handover the reservation
+  is terminal: duplicates, replays with fresh keys, and late full handovers
+  all fail without reviving handed-over inventory.

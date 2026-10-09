@@ -41,10 +41,24 @@ pub struct CompletePickupInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompletePartialPickupInput {
+    #[serde(default)]
+    pub reservation_id: Option<Uuid>,
+    pub secret: String,
+    pub handover_quantity: i64,
+    /// Explicit terminal outcome for the uncollected remainder: `released`
+    /// returns genuine surplus to the offer for re-offer, `disposed` moves it
+    /// to the disposed bucket (unsafe, perished, or otherwise unusable).
+    pub remainder: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum Command {
     IssuePickupProof(IssuePickupProofInput),
     CompletePickup(CompletePickupInput),
+    CompletePartialPickup(CompletePartialPickupInput),
 }
 
 /// Minimal handover data revealed by a valid proof: who to expect, how much,
@@ -77,6 +91,9 @@ pub async fn execute(
 ) -> Result<(StatusCode, Value)> {
     if let Command::CompletePickup(input) = command {
         return execute_pickup(state, actor, idempotency_key, input).await;
+    }
+    if let Command::CompletePartialPickup(input) = command {
+        return execute_partial_pickup(state, actor, idempotency_key, input).await;
     }
     let Command::IssuePickupProof(input) = command else {
         return Err(AppError::internal());
@@ -495,6 +512,231 @@ async fn execute_pickup(
         money_delta_cents: Some(
             price_cents
                 .checked_mul(quantity)
+                .ok_or_else(|| AppError::validation("Goods value overflow"))?,
+        ),
+        ..Default::default()
+    };
+    fact.record(&mut tx, None).await?;
+
+    replay.finish(&mut tx, 200, &resulting_val).await?;
+    tx.commit().await?;
+    Ok((StatusCode::OK, resulting_val))
+}
+
+/// Complete one final partial handover of whole separable units.
+///
+/// Only reservations of more than one unit can split: each sellable unit is
+/// indivisible (INV-010), so a single-unit reservation must use the full
+/// handover, and the handed-over count must be a positive whole-unit amount
+/// strictly below the accepted quantity. The uncollected remainder reaches an
+/// explicit terminal outcome in the same transaction (INV-011): `released`
+/// returns genuine surplus to the offer for re-offer, `disposed` moves
+/// perished or unsafe units to the disposed bucket. Either way the
+/// reservation becomes `picked_up` and no later command can revive
+/// handed-over inventory (INV-007, INV-009, INV-014).
+///
+/// The accepted unit price stays fixed and only the handed-over units are
+/// recorded as goods value; no refund is processed (ADR-002).
+async fn execute_partial_pickup(
+    state: &AppState,
+    actor: &User,
+    idempotency_key: Option<&str>,
+    input: CompletePartialPickupInput,
+) -> Result<(StatusCode, Value)> {
+    let reservation_id = input
+        .reservation_id
+        .ok_or_else(|| AppError::validation("reservation_id is required to complete pickup"))?;
+    if input.secret.trim().is_empty() {
+        return Err(AppError::validation("Pickup proof secret is required"));
+    }
+    if input.handover_quantity < 1 {
+        return Err(AppError::validation(
+            "handover_quantity must be a positive whole-unit count",
+        ));
+    }
+    let release_remainder = match input.remainder.as_str() {
+        "released" => true,
+        "disposed" => false,
+        _ => {
+            return Err(AppError::validation(
+                "remainder must be 'released' or 'disposed'",
+            ));
+        }
+    };
+
+    let mut tx = state.pool.begin().await?;
+    let actor = identity::lock_actor(&mut tx, actor.id).await?;
+
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
+    let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
+    let (replay, cached) = Replay::begin(
+        &mut tx,
+        actor.id,
+        "complete_partial_pickup",
+        idempotency_key,
+        &command_json,
+    )
+    .await?;
+    if let Some((code, payload)) = cached {
+        return Ok((
+            StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+            payload,
+        ));
+    }
+
+    let linkage: Option<(Uuid, Uuid)> =
+        sqlx::query_as("SELECT offer_id, consumer_id FROM suasobra.reservations WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let (offer_id, _consumer_id) = linkage.ok_or_else(AppError::missing)?;
+
+    let supplier_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT supplier_id FROM suasobra.offers WHERE id=$1")
+            .bind(offer_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let supplier_id = supplier_id.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
+    let owner_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT owner_id FROM suasobra.suppliers WHERE id=$1 FOR UPDATE")
+            .bind(supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let owner_id = owner_id.ok_or_else(AppError::missing)?;
+
+    if actor.id != owner_id && !actor.moderator() {
+        return Err(AppError::forbidden());
+    }
+
+    lock.acquire(Authority::Offer, &offer_id.to_string())?;
+    let offer: Option<crate::marketplace::Offer> =
+        sqlx::query_as("SELECT * FROM suasobra.offers WHERE id=$1 FOR UPDATE")
+            .bind(offer_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let offer = offer.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
+    let reservation_row: Option<(String, i64, i64, String, String, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT status, quantity, accepted_price_cents, accepted_condition, accepted_policy_version, accepted_pickup_ends_at FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+    )
+    .bind(reservation_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let (status, quantity, price_cents, condition, policy_version, pickup_ends_at) =
+        reservation_row.ok_or_else(AppError::missing)?;
+
+    if status != "confirmed" {
+        return Err(AppError::conflict(format!(
+            "Only confirmed reservations can be picked up; current status is '{status}'"
+        )));
+    }
+    if Utc::now() >= pickup_ends_at {
+        return Err(AppError::conflict(
+            "The pickup window has ended; handover is no longer possible",
+        ));
+    }
+
+    // Whole-unit split only: a single-unit reservation is indivisible and a
+    // handover at or above the accepted quantity belongs to the full command.
+    if input.handover_quantity >= quantity {
+        return Err(AppError::validation(
+            "handover_quantity must be below the accepted quantity; use the full handover for the whole reservation",
+        ));
+    }
+    let remainder = quantity - input.handover_quantity;
+
+    let verified = consume_pickup_proof(&mut tx, reservation_id, &input.secret).await?;
+    if verified.quantity != quantity || verified.condition != condition {
+        return Err(AppError::internal());
+    }
+
+    let new_committed = offer
+        .committed_quantity
+        .checked_sub(quantity)
+        .ok_or_else(AppError::internal)?;
+    let new_fulfilled = offer
+        .fulfilled_quantity
+        .checked_add(input.handover_quantity)
+        .ok_or_else(|| AppError::validation("Bucket quantity overflow"))?;
+    let (new_available, new_disposed) = if release_remainder {
+        (
+            offer
+                .available_quantity
+                .checked_add(remainder)
+                .ok_or_else(|| AppError::validation("Bucket quantity overflow"))?,
+            offer.disposed_quantity,
+        )
+    } else {
+        (
+            offer.available_quantity,
+            offer
+                .disposed_quantity
+                .checked_add(remainder)
+                .ok_or_else(|| AppError::validation("Bucket quantity overflow"))?,
+        )
+    };
+    sqlx::query(
+        "UPDATE suasobra.offers SET committed_quantity=$2, fulfilled_quantity=$3, available_quantity=$4, disposed_quantity=$5, updated_at=now() WHERE id=$1",
+    )
+    .bind(offer_id)
+    .bind(new_committed)
+    .bind(new_fulfilled)
+    .bind(new_available)
+    .bind(new_disposed)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("UPDATE suasobra.reservations SET status='picked_up' WHERE id=$1")
+        .bind(reservation_id)
+        .execute(&mut *tx)
+        .await?;
+
+    let resulting_val: Value =
+        sqlx::query_scalar("SELECT to_jsonb(r) FROM suasobra.reservations r WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+    let mut fact = AuditFact {
+        entity_type: "reservation".into(),
+        entity_id: reservation_id.to_string(),
+        action: "partial_pickup_completed".into(),
+        actor_id: Some(actor.id),
+        actor_scope: if actor.id == owner_id {
+            "supplier_owner"
+        } else {
+            "moderator"
+        }
+        .into(),
+        authority_or_policy: policy_version,
+        evidence_kind: "participant_acknowledgment".into(),
+        reason: format!(
+            "Partial handover of {} of {quantity} unit(s) to {} collector {} acknowledged; remainder {remainder} unit(s) {}; accepted goods value recorded without financial receipt",
+            input.handover_quantity,
+            if verified.scope == CollectorScope::Holder {
+                "holder"
+            } else {
+                "nominated"
+            },
+            verified.collector_id,
+            if release_remainder {
+                "released for re-offer"
+            } else {
+                "disposed"
+            },
+        ),
+        prior_state: json!({}),
+        resulting_state: resulting_val.clone(),
+        prior_quantity: Some(offer.committed_quantity),
+        resulting_quantity: Some(new_committed),
+        quantity_delta: Some(-quantity),
+        money_delta_cents: Some(
+            price_cents
+                .checked_mul(input.handover_quantity)
                 .ok_or_else(|| AppError::validation("Goods value overflow"))?,
         ),
         ..Default::default()
