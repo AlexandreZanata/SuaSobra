@@ -321,7 +321,13 @@
         "backend/tests/p04_01.rs::issue_rejects_outsiders_owner_and_bad_nominees",
         "backend/tests/p04_01.rs::expired_and_used_proofs_reject_and_single_use_holds",
         "backend/tests/p04_01.rs::issue_replay_returns_same_sealed_response",
-        "backend/tests/p04_01.rs::proof_rows_are_append_only"
+        "backend/tests/p04_01.rs::proof_rows_are_append_only",
+        "backend/tests/p04_02.rs::owner_completes_pickup_with_live_proof",
+        "backend/tests/p04_02.rs::forgery_attempts_fail_without_state_change",
+        "backend/tests/p04_02.rs::duplicate_pickup_yields_one_effect_and_replays_cleanly",
+        "backend/tests/p04_02.rs::concurrent_duplicate_handovers_yield_one_pickup",
+        "backend/tests/p04_02.rs::pickup_after_window_or_terminal_is_rejected",
+        "backend/tests/p04_02.rs::http_pickup_route_requires_owner_and_secret"
       ],
       "evidence_kind": "reservation_cancellation_coverage",
       "verification": null,
@@ -867,7 +873,13 @@
         "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
         "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
         "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
-        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end",
+        "backend/tests/p04_02.rs::owner_completes_pickup_with_live_proof",
+        "backend/tests/p04_02.rs::forgery_attempts_fail_without_state_change",
+        "backend/tests/p04_02.rs::duplicate_pickup_yields_one_effect_and_replays_cleanly",
+        "backend/tests/p04_02.rs::concurrent_duplicate_handovers_yield_one_pickup",
+        "backend/tests/p04_02.rs::pickup_after_window_or_terminal_is_rejected",
+        "backend/tests/p04_02.rs::http_pickup_route_requires_owner_and_secret"
       ],
       "evidence_kind": "reservation_replay_coverage",
       "verification": null,

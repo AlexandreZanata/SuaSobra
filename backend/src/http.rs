@@ -1,6 +1,7 @@
 use crate::{
     AppState,
     error::{AppError, Result},
+    fulfillment,
     identity::{self, Session},
     marketplace, reservations, suppliers,
 };
@@ -520,6 +521,34 @@ async fn dispatch(
             &viewer,
             key,
             reservations::Command::CancelReservation(cancel_input),
+        )
+        .await?;
+        return Ok((code.as_u16(), result, vec![]));
+    }
+    if segments.len() == 5
+        && segments[..3] == ["api", "v1", "reservations"]
+        && segments[4] == "pickup"
+        && method == Method::POST
+    {
+        let id = uuid(segments[3])?;
+        let viewer = identity::user(state, session).await?;
+        let key = headers
+            .get("idempotency-key")
+            .map(|v| {
+                v.to_str()
+                    .map_err(|_| AppError::validation("Invalid Idempotency-Key"))
+            })
+            .transpose()?;
+        let mut pickup_input: fulfillment::CompletePickupInput = serde_json::from_value(input)
+            .map_err(|e| AppError::validation(format!("Invalid pickup payload: {e}")))?;
+        if pickup_input.reservation_id.is_none() {
+            pickup_input.reservation_id = Some(id);
+        }
+        let (code, result) = fulfillment::execute(
+            state,
+            &viewer,
+            key,
+            fulfillment::Command::CompletePickup(pickup_input),
         )
         .await?;
         return Ok((code.as_u16(), result, vec![]));

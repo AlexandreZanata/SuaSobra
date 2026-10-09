@@ -33,9 +33,18 @@ pub struct IssuePickupProofInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompletePickupInput {
+    #[serde(default)]
+    pub reservation_id: Option<Uuid>,
+    pub secret: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum Command {
     IssuePickupProof(IssuePickupProofInput),
+    CompletePickup(CompletePickupInput),
 }
 
 /// Minimal handover data revealed by a valid proof: who to expect, how much,
@@ -66,7 +75,12 @@ pub async fn execute(
     idempotency_key: Option<&str>,
     command: Command,
 ) -> Result<(StatusCode, Value)> {
-    let Command::IssuePickupProof(input) = command;
+    if let Command::CompletePickup(input) = command {
+        return execute_pickup(state, actor, idempotency_key, input).await;
+    }
+    let Command::IssuePickupProof(input) = command else {
+        return Err(AppError::internal());
+    };
     let reservation_id = input.reservation_id.ok_or_else(|| {
         AppError::validation("reservation_id is required to issue a pickup proof")
     })?;
@@ -308,4 +322,186 @@ pub async fn consume_pickup_proof(
         quantity,
         condition,
     })
+}
+
+/// Complete one final full pickup of a confirmed reservation.
+///
+/// The caller must be the supplier owner (or a moderator) AND present the
+/// collector's live proof secret: neither owner authority alone nor a bare
+/// reservation UUID completes anything, so unknown clients cannot forge
+/// completion. Proof, quantity and status move in one transaction — the proof
+/// is redeemed, the full accepted quantity moves committed→fulfilled, and the
+/// reservation becomes `picked_up`. Any second handover finds a used proof
+/// and a terminal status, so one reservation yields one final pickup, one
+/// unit effect and one event (INV-007, INV-009).
+///
+/// The accepted price is recorded as the known goods value handed over; the
+/// platform verifies no financial receipt and settles nothing (ADR-002).
+async fn execute_pickup(
+    state: &AppState,
+    actor: &User,
+    idempotency_key: Option<&str>,
+    input: CompletePickupInput,
+) -> Result<(StatusCode, Value)> {
+    let reservation_id = input
+        .reservation_id
+        .ok_or_else(|| AppError::validation("reservation_id is required to complete pickup"))?;
+    if input.secret.trim().is_empty() {
+        return Err(AppError::validation("Pickup proof secret is required"));
+    }
+
+    let mut tx = state.pool.begin().await?;
+    let actor = identity::lock_actor(&mut tx, actor.id).await?;
+
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
+    let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
+    let (replay, cached) = Replay::begin(
+        &mut tx,
+        actor.id,
+        "complete_pickup",
+        idempotency_key,
+        &command_json,
+    )
+    .await?;
+    if let Some((code, payload)) = cached {
+        return Ok((
+            StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+            payload,
+        ));
+    }
+
+    let linkage: Option<(Uuid, Uuid)> =
+        sqlx::query_as("SELECT offer_id, consumer_id FROM suasobra.reservations WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let (offer_id, _consumer_id) = linkage.ok_or_else(AppError::missing)?;
+
+    let supplier_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT supplier_id FROM suasobra.offers WHERE id=$1")
+            .bind(offer_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let supplier_id = supplier_id.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
+    let owner_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT owner_id FROM suasobra.suppliers WHERE id=$1 FOR UPDATE")
+            .bind(supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let owner_id = owner_id.ok_or_else(AppError::missing)?;
+
+    // Handover authority: the supplier owner (or a moderator) verifies the
+    // collector in person. Consumers, nominees and outsiders cannot complete,
+    // even holding a valid secret.
+    if actor.id != owner_id && !actor.moderator() {
+        return Err(AppError::forbidden());
+    }
+
+    lock.acquire(Authority::Offer, &offer_id.to_string())?;
+    let offer: Option<crate::marketplace::Offer> =
+        sqlx::query_as("SELECT * FROM suasobra.offers WHERE id=$1 FOR UPDATE")
+            .bind(offer_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let offer = offer.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
+    let reservation_row: Option<(String, i64, i64, String, String, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT status, quantity, accepted_price_cents, accepted_condition, accepted_policy_version, accepted_pickup_ends_at FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+    )
+    .bind(reservation_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let (status, quantity, price_cents, condition, policy_version, pickup_ends_at) =
+        reservation_row.ok_or_else(AppError::missing)?;
+
+    if status != "confirmed" {
+        return Err(AppError::conflict(format!(
+            "Only confirmed reservations can be picked up; current status is '{status}'"
+        )));
+    }
+    if Utc::now() >= pickup_ends_at {
+        return Err(AppError::conflict(
+            "The pickup window has ended; handover is no longer possible",
+        ));
+    }
+
+    // Redeem the collector's proof in this same transaction: verification
+    // without actual handover is a separate read-only primitive and consumes
+    // nothing, while this redemption moves with the goods.
+    let verified = consume_pickup_proof(&mut tx, reservation_id, &input.secret).await?;
+    if verified.quantity != quantity || verified.condition != condition {
+        return Err(AppError::internal());
+    }
+
+    let new_committed = offer
+        .committed_quantity
+        .checked_sub(quantity)
+        .ok_or_else(AppError::internal)?;
+    let new_fulfilled = offer
+        .fulfilled_quantity
+        .checked_add(quantity)
+        .ok_or_else(|| AppError::validation("Bucket quantity overflow"))?;
+    sqlx::query(
+        "UPDATE suasobra.offers SET committed_quantity=$2, fulfilled_quantity=$3, updated_at=now() WHERE id=$1",
+    )
+    .bind(offer_id)
+    .bind(new_committed)
+    .bind(new_fulfilled)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("UPDATE suasobra.reservations SET status='picked_up' WHERE id=$1")
+        .bind(reservation_id)
+        .execute(&mut *tx)
+        .await?;
+
+    let resulting_val: Value =
+        sqlx::query_scalar("SELECT to_jsonb(r) FROM suasobra.reservations r WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+    let mut fact = AuditFact {
+        entity_type: "reservation".into(),
+        entity_id: reservation_id.to_string(),
+        action: "pickup_completed".into(),
+        actor_id: Some(actor.id),
+        actor_scope: if actor.id == owner_id {
+            "supplier_owner"
+        } else {
+            "moderator"
+        }
+        .into(),
+        authority_or_policy: policy_version,
+        evidence_kind: "participant_acknowledgment".into(),
+        reason: format!(
+            "Handover of {quantity} unit(s) to {} collector {} acknowledged; accepted goods value recorded without financial receipt",
+            if verified.scope == CollectorScope::Holder {
+                "holder"
+            } else {
+                "nominated"
+            },
+            verified.collector_id
+        ),
+        prior_state: json!({}),
+        resulting_state: resulting_val.clone(),
+        prior_quantity: Some(offer.committed_quantity),
+        resulting_quantity: Some(new_committed),
+        quantity_delta: Some(-quantity),
+        money_delta_cents: Some(
+            price_cents
+                .checked_mul(quantity)
+                .ok_or_else(|| AppError::validation("Goods value overflow"))?,
+        ),
+        ..Default::default()
+    };
+    fact.record(&mut tx, None).await?;
+
+    replay.finish(&mut tx, 200, &resulting_val).await?;
+    tx.commit().await?;
+    Ok((StatusCode::OK, resulting_val))
 }

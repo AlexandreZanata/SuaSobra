@@ -2,8 +2,8 @@
 
 Pickup proofs authenticate the collector at handover. A bare reservation UUID
 never authorizes pickup: only a live secret bound to the reservation does.
-This task defines authority and the proof primitives; the handover command
-that consumes them follows in P04-02. No HTTP exposure yet.
+P04-02 adds the handover command that consumes them, exposed at
+`POST /v1/reservations/:id/pickup` (body `{ "secret": "<proof>" }`).
 
 ## Collector and owner scope
 
@@ -34,3 +34,20 @@ that consumes them follows in P04-02. No HTTP exposure yet.
 - A valid proof reveals only the required handover data — proof and
   reservation IDs, collector ID and first name, scope, quantity and
   condition. Contact details and addresses are never included.
+
+## Final handover (P04-02, INV-007/INV-061)
+
+- `Command::CompletePickup` runs one transaction: lock the reservation, then
+  the offer, then consume the proof. It requires a `confirmed` (or
+  `partially_committed`) reservation inside its pickup window, the caller to
+  be the supplier owner (actor scope `owner`), and a live single-use secret
+  bound to that reservation. Wrong, expired, used, or cross-reservation
+  secrets fail alike with `403`, so unknown clients cannot forge completion.
+- The handover moves the reservation to `fulfilled`, consumes the committed
+  units once, writes one `reservation_events` row (`handed_over`) and one
+  `reservation_commands` row (`CompletePickup`) under the same idempotency
+  key, and releases no units back to the offer. The direct goods price stays
+  a goods value, not provider-confirmed receipt.
+- Concurrent duplicate handovers yield one final pickup: the losers meet the
+  already-`fulfilled` guard or the already-consumed proof and fail without a
+  second unit effect or a second event.
