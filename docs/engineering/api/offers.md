@@ -54,12 +54,50 @@ Offers transition from `draft` to `published` (or `scheduled`) via `Command::Pub
 - **No price lock on display (INV-021):**
   - Viewing a published price or offer confers no stock priority or price lock; allocations require explicit accepted reservation commitments.
 
+## Discovery and location privacy (P02-04)
+
+Consumers and anonymous visitors discover nearby available surplus via `GET /api/v1/offers/discover/` (also `POST /api/v1/offers/discover/` and `/api/v1/discovery/`). Discovery enforces read-only spherical distance calculations with strict eligibility and privacy filters:
+
+- **Query parameters:**
+  - `latitude` (required, float $\in [-90.0, 90.0]$): User location latitude.
+  - `longitude` (required, float $\in [-180.0, 180.0]$): User location longitude.
+  - `radius_km` (optional, default `10.0`, range $[0.1, 50.0]$): Search radius in kilometers.
+  - `category` (optional, string): Canonical surplus category filter (`food`, `wood_carpentry`, etc.). Empty string rejected with `400 Bad Request`.
+  - `free_only` (optional, boolean): If `true`, restricts matches to zero-priced items (`price_cents = 0`).
+  - `max_price_cents` (optional, unsigned integer): Maximum price filter in BRL cents.
+  - `limit` (optional, default `20`, range $[1, 100]$): Bounded page size.
+  - `offset` (optional, default `0`, unsigned integer): Bounded pagination offset.
+- **Active and safety filters (UC-004):**
+  - Offer must be in `published` status (drafts, scheduled, paused, closed, or withdrawn offers are excluded).
+  - Positive available quantity (`available_quantity > 0`).
+  - Currently bookable: `booking_starts_at <= now AND booking_ends_at > now`.
+  - Live pickup window: `pickup_ends_at > now`.
+  - Accountable supplier in `active` or `warned` standing.
+  - Active establishment and pickup point (`is_active = true`).
+  - Food safety filter: food offers must have future `expiry_or_best_before > now` and truthful condition.
+- **Location privacy (INV-057):**
+  - Pickup point documents in discovery and public detail views are sanitized via `public_point()`:
+    - Exact GPS coordinates (`latitude`, `longitude`) are stripped.
+    - Sensitive operational fields (`access_instructions`, `address_complement`, `establishment_id`) are stripped.
+    - Private addresses (`is_private_address: true`) mask `address_street` as `"[Private location revealed after reservation]"` and blank `address_number`.
+    - Distance is provided as an approximate estimate rounded to 0.1 km (`approximate_distance_km`), never exact coordinates or routing.
+- **No price lock or priority (INV-021):**
+  - Discovery and detail queries are purely read-only; no database inventory buckets are mutated, and viewing grants no reservation hold, allocation lock, or price freeze.
+- **Deterministic ordering:**
+  - Matches are stably ordered by `distance_km ASC, booking_ends_at ASC, id ASC`.
+- **Public offer detail:**
+  - `GET /api/v1/offers/{id}/`:
+    - Public visitors and non-owner consumers receive active published offers with masked pickup points and establishment name.
+    - Unpublished drafts, paused/closed offers, or offers on inactive sites return `404 Not Found` to outsiders.
+    - Supplier owners and authorized moderators receive full unmasked point documents and draft access.
+
 ## Status and exposure
 
 - Draft creation: `POST /api/v1/offers/` (P02-02).
 - Publication: `POST /api/v1/offers/{id}/publish/` (P02-03).
-- Individual offer retrieval: `GET /api/v1/offers/{id}/` (P02-03).
+- Individual offer retrieval: `GET /api/v1/offers/{id}/` (P02-03, updated P02-04).
 - Supplier offers list: `GET /api/v1/suppliers/{id}/offers/` (P02-03).
-- Future discovery queries with bounded radius and location privacy (P02-04).
+- Nearby offer discovery: `GET /api/v1/offers/discover/` with bounded pagination and location privacy (P02-04).
 - Future owner-authorized quantity corrections and withdrawals (P02-05).
+
 

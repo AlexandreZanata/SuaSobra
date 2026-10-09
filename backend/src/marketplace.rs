@@ -949,6 +949,74 @@ pub async fn get_offer(pool: &PgPool, id: Uuid) -> Result<Offer> {
         .ok_or_else(AppError::missing)
 }
 
+pub async fn get_offer_detail(pool: &PgPool, id: Uuid, actor: Option<&User>) -> Result<Value> {
+    #[derive(sqlx::FromRow)]
+    struct OfferDetailRow {
+        offer_val: Value,
+        point_data: Value,
+        supplier_owner_id: Uuid,
+        offer_status: String,
+        establishment_name: String,
+        supplier_standing: String,
+        est_active: bool,
+        point_active: bool,
+    }
+
+    let row: Option<OfferDetailRow> = sqlx::query_as(
+        r#"
+        SELECT
+            to_jsonb(o) AS offer_val,
+            p.data AS point_data,
+            s.owner_id AS supplier_owner_id,
+            o.status AS offer_status,
+            e.name AS establishment_name,
+            s.standing AS supplier_standing,
+            e.is_active AS est_active,
+            p.is_active AS point_active
+        FROM suasobra.offers o
+        JOIN suasobra.establishments e ON o.establishment_id = e.id
+        JOIN suasobra.suppliers s ON o.supplier_id = s.id
+        JOIN suasobra.pickup_points p ON o.pickup_point_id = p.id
+        WHERE o.id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+
+    let row = row.ok_or_else(AppError::missing)?;
+    let mut offer_val = row.offer_val;
+
+    let is_authorized = actor.is_some_and(|a| a.id == row.supplier_owner_id || a.moderator());
+
+    if !is_authorized {
+        // Draft, paused, closed, or withdrawn offers, or inactive sites/suppliers are not visible to outsiders
+        if row.offer_status != "published"
+            || !row.est_active
+            || !row.point_active
+            || (row.supplier_standing != "active" && row.supplier_standing != "warned")
+        {
+            return Err(AppError::missing());
+        }
+        // Mask pickup point per INV-057
+        let public_p = crate::suppliers::public_point(row.point_data);
+        if let Some(obj) = offer_val.as_object_mut() {
+            obj.insert("pickup_point".into(), public_p);
+        }
+    } else if let Some(obj) = offer_val.as_object_mut() {
+        obj.insert("pickup_point".into(), row.point_data);
+    }
+
+    if let Some(obj) = offer_val.as_object_mut() {
+        obj.insert(
+            "establishment_name".into(),
+            Value::String(row.establishment_name),
+        );
+    }
+
+    Ok(offer_val)
+}
+
 pub async fn list_offers_for_supplier(pool: &PgPool, supplier_id: Uuid) -> Result<Vec<Offer>> {
     sqlx::query_as::<_, Offer>(
         "SELECT * FROM suasobra.offers WHERE supplier_id = $1 ORDER BY created_at DESC",
@@ -957,4 +1025,430 @@ pub async fn list_offers_for_supplier(pool: &PgPool, supplier_id: Uuid) -> Resul
     .fetch_all(pool)
     .await
     .map_err(Into::into)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryQuery {
+    #[serde(deserialize_with = "deserialize_f64_or_str")]
+    pub latitude: f64,
+    #[serde(deserialize_with = "deserialize_f64_or_str")]
+    pub longitude: f64,
+    #[serde(
+        default = "default_radius_km",
+        deserialize_with = "deserialize_opt_f64_or_str"
+    )]
+    pub radius_km: f64,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_opt_bool_or_str")]
+    pub free_only: Option<bool>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_or_str")]
+    pub max_price_cents: Option<u64>,
+    #[serde(default = "default_limit", deserialize_with = "deserialize_u64_or_str")]
+    pub limit: u64,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_def_zero")]
+    pub offset: u64,
+}
+
+fn default_radius_km() -> f64 {
+    10.0
+}
+
+fn default_limit() -> u64 {
+    20
+}
+
+fn deserialize_f64_or_str<'de, D>(deserializer: D) -> std::result::Result<f64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumOrStr {
+        Num(f64),
+        Str(String),
+    }
+    match NumOrStr::deserialize(deserializer)? {
+        NumOrStr::Num(n) => Ok(n),
+        NumOrStr::Str(s) => s.trim().parse::<f64>().map_err(serde::de::Error::custom),
+    }
+}
+
+fn deserialize_opt_f64_or_str<'de, D>(deserializer: D) -> std::result::Result<f64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumOrStr {
+        Num(f64),
+        Str(String),
+    }
+    match Option::<NumOrStr>::deserialize(deserializer)? {
+        Some(NumOrStr::Num(n)) => Ok(n),
+        Some(NumOrStr::Str(s)) => {
+            let s = s.trim();
+            if s.is_empty() {
+                Ok(10.0)
+            } else {
+                s.parse::<f64>().map_err(serde::de::Error::custom)
+            }
+        }
+        None => Ok(10.0),
+    }
+}
+
+fn deserialize_u64_or_str<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumOrStr {
+        Num(u64),
+        Str(String),
+    }
+    match NumOrStr::deserialize(deserializer)? {
+        NumOrStr::Num(n) => Ok(n),
+        NumOrStr::Str(s) => s.trim().parse::<u64>().map_err(serde::de::Error::custom),
+    }
+}
+
+fn deserialize_opt_u64_def_zero<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumOrStr {
+        Num(u64),
+        Str(String),
+    }
+    match Option::<NumOrStr>::deserialize(deserializer)? {
+        Some(NumOrStr::Num(n)) => Ok(n),
+        Some(NumOrStr::Str(s)) => {
+            let s = s.trim();
+            if s.is_empty() {
+                Ok(0)
+            } else {
+                s.parse::<u64>().map_err(serde::de::Error::custom)
+            }
+        }
+        None => Ok(0),
+    }
+}
+
+fn deserialize_opt_bool_or_str<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<bool>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoolOrStr {
+        Bool(bool),
+        Str(String),
+    }
+    match Option::<BoolOrStr>::deserialize(deserializer)? {
+        Some(BoolOrStr::Bool(b)) => Ok(Some(b)),
+        Some(BoolOrStr::Str(s)) => match s.trim().to_lowercase().as_str() {
+            "true" | "1" => Ok(Some(true)),
+            "false" | "0" => Ok(Some(false)),
+            "" => Ok(None),
+            _ => Err(serde::de::Error::custom("expected boolean")),
+        },
+        None => Ok(None),
+    }
+}
+
+fn deserialize_opt_u64_or_str<'de, D>(deserializer: D) -> std::result::Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumOrStr {
+        Num(u64),
+        Str(String),
+    }
+    match Option::<NumOrStr>::deserialize(deserializer)? {
+        Some(NumOrStr::Num(n)) => Ok(Some(n)),
+        Some(NumOrStr::Str(s)) => {
+            let s = s.trim();
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<u64>().map(Some).map_err(serde::de::Error::custom)
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+impl DiscoveryQuery {
+    pub fn validate(&self) -> Result<()> {
+        if !(-90.0..=90.0).contains(&self.latitude) {
+            return Err(AppError::validation(
+                "Latitude must be between -90 and 90 degrees",
+            ));
+        }
+        if !(-180.0..=180.0).contains(&self.longitude) {
+            return Err(AppError::validation(
+                "Longitude must be between -180 and 180 degrees",
+            ));
+        }
+        if self.radius_km < 0.1 || self.radius_km > 50.0 {
+            return Err(AppError::validation(
+                "Radius must be between 0.1 and 50.0 km",
+            ));
+        }
+        if self.limit == 0 || self.limit > 100 {
+            return Err(AppError::validation("Limit must be between 1 and 100"));
+        }
+        if let Some(cat) = &self.category {
+            let cat = cat.trim();
+            if cat.is_empty() {
+                return Err(AppError::validation("Category filter cannot be empty"));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryItem {
+    pub id: Uuid,
+    pub title: String,
+    pub description: String,
+    pub category: String,
+    pub unit: String,
+    pub status: String,
+    pub admitted_quantity: i64,
+    pub available_quantity: i64,
+    pub price_cents: i64,
+    pub currency: String,
+    pub payment_mode: String,
+    pub surplus_reason: String,
+    pub condition: String,
+    pub safety_disclosures: Value,
+    pub booking_starts_at: Option<DateTime<Utc>>,
+    pub booking_ends_at: Option<DateTime<Utc>>,
+    pub pickup_starts_at: Option<DateTime<Utc>>,
+    pub pickup_ends_at: Option<DateTime<Utc>>,
+    pub establishment_name: String,
+    pub pickup_point: Value,
+    pub approximate_distance_km: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryResponse {
+    pub query_latitude: String,
+    pub query_longitude: String,
+    pub radius_km: f64,
+    pub limit: u64,
+    pub offset: u64,
+    pub total: usize,
+    pub items: Vec<DiscoveryItem>,
+}
+
+pub async fn discover_offers(pool: &PgPool, query: DiscoveryQuery) -> Result<DiscoveryResponse> {
+    query.validate()?;
+    let now = Utc::now();
+
+    #[derive(sqlx::FromRow)]
+    struct DiscoveryRow {
+        full_count: i64,
+        offer_id: Uuid,
+        title: String,
+        description: String,
+        category: String,
+        unit: String,
+        status: String,
+        admitted_quantity: i64,
+        available_quantity: i64,
+        price_cents: i64,
+        currency: String,
+        payment_mode: String,
+        surplus_reason: String,
+        condition: String,
+        safety_disclosures: Value,
+        booking_starts_at: Option<DateTime<Utc>>,
+        booking_ends_at: Option<DateTime<Utc>>,
+        pickup_starts_at: Option<DateTime<Utc>>,
+        pickup_ends_at: Option<DateTime<Utc>>,
+        establishment_name: String,
+        point_data: Value,
+        distance_km: f64,
+    }
+
+    let rows: Vec<DiscoveryRow> = sqlx::query_as(
+        r#"
+        SELECT
+            count(*) OVER() AS full_count,
+            o.id AS offer_id,
+            o.title,
+            o.description,
+            o.category,
+            o.unit,
+            o.status,
+            o.admitted_quantity,
+            o.available_quantity,
+            o.price_cents,
+            o.currency,
+            o.payment_mode,
+            o.surplus_reason,
+            o.condition,
+            o.safety_disclosures,
+            o.booking_starts_at,
+            o.booking_ends_at,
+            o.pickup_starts_at,
+            o.pickup_ends_at,
+            e.name AS establishment_name,
+            p.data AS point_data,
+            (
+                6371.0 * 2.0 * asin(sqrt(
+                    power(sin(radians(((p.data->>'latitude')::double precision - $1) / 2.0)), 2) +
+                    cos(radians($1)) * cos(radians((p.data->>'latitude')::double precision)) *
+                    power(sin(radians(((p.data->>'longitude')::double precision - $2) / 2.0)), 2)
+                ))
+            ) AS distance_km
+        FROM suasobra.offers o
+        JOIN suasobra.establishments e ON o.establishment_id = e.id
+        JOIN suasobra.suppliers s ON o.supplier_id = s.id
+        JOIN suasobra.pickup_points p ON o.pickup_point_id = p.id
+        WHERE o.status = 'published'
+          AND o.available_quantity > 0
+          AND o.booking_starts_at <= $3
+          AND o.booking_ends_at > $3
+          AND o.pickup_ends_at > $3
+          AND s.standing IN ('active', 'warned')
+          AND e.is_active = true
+          AND p.is_active = true
+          AND (
+              o.category <> 'food'
+              OR (
+                  (o.safety_disclosures->>'expiry_or_best_before')::timestamptz > $3
+                  AND o.condition IN ('prepared_today', 'prepared_previously', 'near_expiry', 'shelf_stable', 'surprise_assortment')
+              )
+          )
+          AND (
+              6371.0 * 2.0 * asin(sqrt(
+                  power(sin(radians(((p.data->>'latitude')::double precision - $1) / 2.0)), 2) +
+                  cos(radians($1)) * cos(radians((p.data->>'latitude')::double precision)) *
+                  power(sin(radians(((p.data->>'longitude')::double precision - $2) / 2.0)), 2)
+              ))
+          ) <= $4
+          AND ($5::text IS NULL OR o.category = $5)
+          AND ($6::boolean IS NULL OR $6 = false OR o.price_cents = 0)
+          AND ($7::bigint IS NULL OR o.price_cents <= $7)
+        ORDER BY distance_km ASC, o.booking_ends_at ASC, o.id ASC
+        LIMIT $8 OFFSET $9
+        "#,
+    )
+    .bind(query.latitude)
+    .bind(query.longitude)
+    .bind(now)
+    .bind(query.radius_km)
+    .bind(query.category.as_deref())
+    .bind(query.free_only)
+    .bind(query.max_price_cents.map(|p| p as i64))
+    .bind(query.limit as i64)
+    .bind(query.offset as i64)
+    .fetch_all(pool)
+    .await?;
+
+    let total = if let Some(first) = rows.first() {
+        first.full_count as usize
+    } else if query.offset > 0 {
+        sqlx::query_scalar(
+            r#"
+            SELECT count(*)
+            FROM suasobra.offers o
+            JOIN suasobra.establishments e ON o.establishment_id = e.id
+            JOIN suasobra.suppliers s ON o.supplier_id = s.id
+            JOIN suasobra.pickup_points p ON o.pickup_point_id = p.id
+            WHERE o.status = 'published'
+              AND o.available_quantity > 0
+              AND o.booking_starts_at <= $3
+              AND o.booking_ends_at > $3
+              AND o.pickup_ends_at > $3
+              AND s.standing IN ('active', 'warned')
+              AND e.is_active = true
+              AND p.is_active = true
+              AND (
+                  o.category <> 'food'
+                  OR (
+                      (o.safety_disclosures->>'expiry_or_best_before')::timestamptz > $3
+                      AND o.condition IN ('prepared_today', 'prepared_previously', 'near_expiry', 'shelf_stable', 'surprise_assortment')
+                  )
+              )
+              AND (
+                  6371.0 * 2.0 * asin(sqrt(
+                      power(sin(radians(((p.data->>'latitude')::double precision - $1) / 2.0)), 2) +
+                      cos(radians($1)) * cos(radians((p.data->>'latitude')::double precision)) *
+                      power(sin(radians(((p.data->>'longitude')::double precision - $2) / 2.0)), 2)
+                  ))
+              ) <= $4
+              AND ($5::text IS NULL OR o.category = $5)
+              AND ($6::boolean IS NULL OR $6 = false OR o.price_cents = 0)
+              AND ($7::bigint IS NULL OR o.price_cents <= $7)
+            "#,
+        )
+        .bind(query.latitude)
+        .bind(query.longitude)
+        .bind(now)
+        .bind(query.radius_km)
+        .bind(query.category.as_deref())
+        .bind(query.free_only)
+        .bind(query.max_price_cents.map(|p| p as i64))
+        .fetch_one(pool)
+        .await
+        .map(|c: i64| c as usize)
+        .unwrap_or(0)
+    } else {
+        0
+    };
+
+    let items = rows
+        .into_iter()
+        .map(|r| {
+            let public_point = crate::suppliers::public_point(r.point_data);
+            let approx_distance = (r.distance_km * 10.0).round() / 10.0;
+            DiscoveryItem {
+                id: r.offer_id,
+                title: r.title,
+                description: r.description,
+                category: r.category,
+                unit: r.unit,
+                status: r.status,
+                admitted_quantity: r.admitted_quantity,
+                available_quantity: r.available_quantity,
+                price_cents: r.price_cents,
+                currency: r.currency,
+                payment_mode: r.payment_mode,
+                surplus_reason: r.surplus_reason,
+                condition: r.condition,
+                safety_disclosures: r.safety_disclosures,
+                booking_starts_at: r.booking_starts_at,
+                booking_ends_at: r.booking_ends_at,
+                pickup_starts_at: r.pickup_starts_at,
+                pickup_ends_at: r.pickup_ends_at,
+                establishment_name: r.establishment_name,
+                pickup_point: public_point,
+                approximate_distance_km: approx_distance,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(DiscoveryResponse {
+        query_latitude: format!("{:.2}", query.latitude),
+        query_longitude: format!("{:.2}", query.longitude),
+        radius_km: query.radius_km,
+        limit: query.limit,
+        offset: query.offset,
+        total,
+        items,
+    })
 }

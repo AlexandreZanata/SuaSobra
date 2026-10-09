@@ -33,10 +33,14 @@
     {
       "id": "UC-004",
       "source": "docs/domain/07-use-cases.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_04.rs::discovery_matches_active_published_offers_within_radius_and_sorts_deterministically",
+        "backend/tests/p02_04.rs::discovery_bounded_pagination_and_query_validation"
+      ],
+      "evidence_kind": "discovery_query_and_pagination_coverage",
+      "verification": null,
+      "limitations": "Covers active published offer discovery by coordinates, radius, category, price, and bounded pagination; reservation creation is tested in subsequent tasks."
     },
     {
       "id": "UC-005",
@@ -375,7 +379,8 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/p02_03.rs::displayed_price_alone_grants_no_price_lock_or_stock_priority"
+        "backend/tests/p02_03.rs::displayed_price_alone_grants_no_price_lock_or_stock_priority",
+        "backend/tests/p02_04.rs::discovery_and_viewing_does_not_mutate_inventory_or_grant_lock"
       ],
       "evidence_kind": "offer_publication_and_pricing_coverage",
       "verification": null,
@@ -666,7 +671,8 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history"
+        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history",
+        "backend/tests/p02_04.rs::discovery_and_detail_enforce_location_privacy_and_mask_private_addresses"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,

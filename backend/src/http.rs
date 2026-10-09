@@ -110,6 +110,7 @@ async fn handle(
             serde_json::from_slice::<Value>(&bytes)
                 .map_err(|_| AppError::validation("Invalid JSON body"))?
         };
+        let input = merge_query_and_input(uri.query(), input);
         if !safe {
             identity::csrf(session.as_ref(), &headers)?;
         }
@@ -158,6 +159,51 @@ async fn handle(
         "nosniff".parse().expect("Static header"),
     );
     response
+}
+fn url_decode(s: &str) -> String {
+    let mut result = Vec::new();
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hex_val = |b: u8| -> Option<u8> {
+                match b {
+                    b'0'..=b'9' => Some(b - b'0'),
+                    b'a'..=b'f' => Some(b - b'a' + 10),
+                    b'A'..=b'F' => Some(b - b'A' + 10),
+                    _ => None,
+                }
+            };
+            if let (Some(v1), Some(v2)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                result.push((v1 << 4) | v2);
+                i += 3;
+                continue;
+            }
+        }
+        if bytes[i] == b'+' {
+            result.push(b' ');
+        } else {
+            result.push(bytes[i]);
+        }
+        i += 1;
+    }
+    String::from_utf8_lossy(&result).into_owned()
+}
+fn merge_query_and_input(query_str: Option<&str>, mut input: Value) -> Value {
+    if let (Some(qs), Value::Object(map)) = (query_str, &mut input) {
+        for pair in qs.split('&') {
+            if pair.is_empty() {
+                continue;
+            }
+            let mut parts = pair.splitn(2, '=');
+            let key = url_decode(parts.next().unwrap_or(""));
+            let val = url_decode(parts.next().unwrap_or(""));
+            if !key.is_empty() && !map.contains_key(&key) {
+                map.insert(key, Value::String(val));
+            }
+        }
+    }
+    input
 }
 fn uuid(raw: &str) -> Result<Uuid> {
     raw.parse()
@@ -287,9 +333,28 @@ async fn dispatch(
             "Method not allowed.",
         ));
     }
+    if (segments.as_slice() == ["api", "v1", "offers", "discover"]
+        || segments.as_slice() == ["api", "v1", "discovery"])
+        && (method == Method::GET || method == Method::POST)
+    {
+        let query: marketplace::DiscoveryQuery = serde_json::from_value(input)
+            .map_err(|e| AppError::validation(format!("Invalid discovery parameters: {}", e)))?;
+        let response = marketplace::discover_offers(&state.pool, query).await?;
+        return Ok((
+            200,
+            serde_json::to_value(response).map_err(|_| AppError::internal())?,
+            vec![],
+        ));
+    }
+    if segments.len() == 4 && segments[..3] == ["api", "v1", "offers"] && method == Method::GET {
+        let id = uuid(segments[3])?;
+        let actor = identity::user(state, session).await.ok();
+        let detail = marketplace::get_offer_detail(&state.pool, id, actor.as_ref()).await?;
+        return Ok((200, detail, vec![]));
+    }
     let offer_route = match segments.as_slice() {
         ["api", "v1", "offers"] => Some(("offers", "create_draft", None)),
-        ["api", "v1", "offers", id] => Some(("offer", "", Some(uuid(id)?))),
+        ["api", "v1", "offers", id] => Some(("", "", Some(uuid(id)?))),
         ["api", "v1", "offers", id, "publish"] => Some(("", "publish_offer", Some(uuid(id)?))),
         ["api", "v1", "suppliers", id, "offers"] => Some(("supplier_offers", "", Some(uuid(id)?))),
         _ => None,
@@ -298,12 +363,6 @@ async fn dispatch(
         let actor = identity::user(state, session).await?;
         if method == Method::GET && !query.is_empty() {
             let result = match query {
-                "offer" => {
-                    let offer =
-                        marketplace::get_offer(&state.pool, id.ok_or_else(AppError::missing)?)
-                            .await?;
-                    serde_json::to_value(offer).map_err(|_| AppError::internal())?
-                }
                 "supplier_offers" => {
                     let offers = marketplace::list_offers_for_supplier(
                         &state.pool,
