@@ -7,6 +7,7 @@ pub mod legacy;
 pub mod marketplace;
 pub mod primitives;
 pub mod replay;
+pub mod reservations;
 pub mod suppliers;
 
 use sqlx::{PgPool, postgres::PgPoolOptions};

@@ -45,10 +45,20 @@
     {
       "id": "UC-005",
       "source": "docs/domain/07-use-cases.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p03_01.rs::reserve_confirms_immediately_with_snapshot_and_conserved_buckets",
+        "backend/tests/p03_01.rs::reserve_rejects_zero_over_availability_and_unknown_offer",
+        "backend/tests/p03_01.rs::reserve_forbids_own_supplier_and_restricted_consumers",
+        "backend/tests/p03_01.rs::reserve_rejects_unbookable_and_closed_offers",
+        "backend/tests/p03_01.rs::reserve_enforces_consumer_caps_and_rolls_back",
+        "backend/tests/p03_01.rs::reserve_replay_returns_same_reservation_without_double_commit",
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
+        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one"
+      ],
+      "evidence_kind": "reservation_creation_and_booking_coverage",
+      "verification": null,
+      "limitations": "P03-01 proves immediate confirmation of whole units on bookable published offers with conserved buckets, caps, audit and replay; cancellation/pickup lifecycles remain in later P03 tasks."
     },
     {
       "id": "UC-006",
@@ -214,18 +224,38 @@
     {
       "id": "INV-004",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p03_01.rs::reserve_confirms_immediately_with_snapshot_and_conserved_buckets",
+        "backend/tests/p03_01.rs::reserve_rejects_zero_over_availability_and_unknown_offer",
+        "backend/tests/p03_01.rs::reserve_forbids_own_supplier_and_restricted_consumers",
+        "backend/tests/p03_01.rs::reserve_rejects_unbookable_and_closed_offers",
+        "backend/tests/p03_01.rs::reserve_enforces_consumer_caps_and_rolls_back",
+        "backend/tests/p03_01.rs::reserve_replay_returns_same_reservation_without_double_commit",
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
+        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one"
+      ],
+      "evidence_kind": "reservation_conservation_coverage",
+      "verification": null,
+      "limitations": "P03-01 proves commitments never exceed availability with atomic available-to-committed moves under the conserved_inventory constraint."
     },
     {
       "id": "INV-005",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p03_01.rs::reserve_confirms_immediately_with_snapshot_and_conserved_buckets",
+        "backend/tests/p03_01.rs::reserve_rejects_zero_over_availability_and_unknown_offer",
+        "backend/tests/p03_01.rs::reserve_forbids_own_supplier_and_restricted_consumers",
+        "backend/tests/p03_01.rs::reserve_rejects_unbookable_and_closed_offers",
+        "backend/tests/p03_01.rs::reserve_enforces_consumer_caps_and_rolls_back",
+        "backend/tests/p03_01.rs::reserve_replay_returns_same_reservation_without_double_commit",
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
+        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one"
+      ],
+      "evidence_kind": "reservation_contention_coverage",
+      "verification": null,
+      "limitations": "P03-01 proves simultaneous last-unit attempts accept at most one commitment via the serialized offer row lock on real PostgreSQL."
     },
     {
       "id": "INV-006",
@@ -379,11 +409,12 @@
         "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history",
         "backend/tests/p02_05.rs::edit_published_offer_preserves_accepted_terms",
         "backend/tests/p02_05.rs::terminal_offers_cannot_be_edited_or_withdrawn_again",
-        "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota"
+        "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota",
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits"
       ],
       "evidence_kind": "offer_correction_and_withdrawal_coverage",
       "verification": null,
-      "limitations": "Mapped tests add P02-05 proof that quantity correction/withdrawal leaves accepted price, intervals, point and policy immutable and terminal offers cannot reopen; reservation term protection remains in P03."
+      "limitations": "Mapped tests add P03-01 proof that reservation snapshots join offer term protection; cancellation/pickup lifecycles remain in later P03 tasks."
     },
     {
       "id": "INV-021",
@@ -408,10 +439,20 @@
     {
       "id": "INV-023",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p03_01.rs::reserve_confirms_immediately_with_snapshot_and_conserved_buckets",
+        "backend/tests/p03_01.rs::reserve_rejects_zero_over_availability_and_unknown_offer",
+        "backend/tests/p03_01.rs::reserve_forbids_own_supplier_and_restricted_consumers",
+        "backend/tests/p03_01.rs::reserve_rejects_unbookable_and_closed_offers",
+        "backend/tests/p03_01.rs::reserve_enforces_consumer_caps_and_rolls_back",
+        "backend/tests/p03_01.rs::reserve_replay_returns_same_reservation_without_double_commit",
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
+        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one"
+      ],
+      "evidence_kind": "reservation_snapshot_coverage",
+      "verification": null,
+      "limitations": "P03-01 proves stored price, condition, point version, intervals and policy snapshots survive later edits and cannot be rewritten or deleted."
     },
     {
       "id": "INV-024",
@@ -464,10 +505,20 @@
     {
       "id": "INV-030",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p03_01.rs::reserve_confirms_immediately_with_snapshot_and_conserved_buckets",
+        "backend/tests/p03_01.rs::reserve_rejects_zero_over_availability_and_unknown_offer",
+        "backend/tests/p03_01.rs::reserve_forbids_own_supplier_and_restricted_consumers",
+        "backend/tests/p03_01.rs::reserve_rejects_unbookable_and_closed_offers",
+        "backend/tests/p03_01.rs::reserve_enforces_consumer_caps_and_rolls_back",
+        "backend/tests/p03_01.rs::reserve_replay_returns_same_reservation_without_double_commit",
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
+        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one"
+      ],
+      "evidence_kind": "immediate_confirmation_coverage",
+      "verification": null,
+      "limitations": "P03-01 proves free and at-pickup reservations confirm immediately with no online payment state."
     },
     {
       "id": "INV-031",
