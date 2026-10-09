@@ -60,8 +60,10 @@ pub enum Command {
 /// immediately without any online payment state. The accepted price, quantity,
 /// condition, pickup point version, pickup interval and policy version are
 /// snapshotted into the reservation row and can never be rewritten (INV-020,
-/// INV-023). The offer row lock serializes concurrent attempts so simultaneous
-/// requests for the last unit yield at most one acceptance (INV-005).
+/// INV-023). The consumer row lock is taken before any supplier or offer lock
+/// so account-wide cap checks serialize per consumer, and the offer row lock
+/// serializes concurrent attempts so simultaneous requests for the last unit
+/// yield at most one acceptance (INV-005).
 pub async fn execute(
     state: &AppState,
     actor: &User,
@@ -81,6 +83,14 @@ pub async fn execute(
     let mut tx = state.pool.begin().await?;
     let actor = identity::lock_actor(&mut tx, actor.id).await?;
 
+    // Consumer/cap authority first: the actor row lock above serializes this
+    // consumer's cap checks before any supplier or offer lock is taken, so
+    // parallel confirms on different offers cannot bypass account-wide caps
+    // (INV-001, INV-005). Any future reordering that touches supplier
+    // authority first fails loudly here instead of silently racing caps.
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
     let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
     let (replay, cached) = Replay::begin(
         &mut tx,
@@ -97,8 +107,9 @@ pub async fn execute(
         ));
     }
 
-    // Supplier-before-offer-before-reservation row locks: resolve the supplier
-    // without locking, then lock supplier authority before the offer row.
+    // Consumer-before-supplier-before-offer-before-reservation row locks:
+    // resolve the supplier without locking, then lock supplier authority
+    // before the offer row.
     let supplier_id: Option<Uuid> =
         sqlx::query_scalar("SELECT supplier_id FROM suasobra.offers WHERE id=$1")
             .bind(offer_id)
@@ -106,7 +117,6 @@ pub async fn execute(
             .await?;
     let supplier_id = supplier_id.ok_or_else(AppError::missing)?;
 
-    let mut lock = LockOrder::default();
     lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
 
     let supplier_row: Option<(Uuid, String)> =

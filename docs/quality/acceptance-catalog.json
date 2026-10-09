@@ -195,11 +195,17 @@
       "tests": [
         "backend/tests/p02_01.rs::database_rejects_negative_quantity_buckets",
         "backend/tests/p02_01.rs::surplus_identity_and_buckets_persist_with_uuidv7",
-        "backend/tests/p02_05.rs::concurrent_withdrawals_keep_conserved_buckets"
+        "backend/tests/p02_05.rs::concurrent_withdrawals_keep_conserved_buckets",
+        "backend/tests/p03_02.rs::two_users_racing_for_final_units_yield_one_success",
+        "backend/tests/p03_02.rs::parallel_offers_cannot_bypass_simultaneous_commitment_cap",
+        "backend/tests/p03_02.rs::parallel_free_offers_cannot_bypass_free_reservation_cap",
+        "backend/tests/p03_02.rs::identical_retry_persists_a_single_reservation",
+        "backend/tests/p03_02.rs::failed_confirm_rolls_back_buckets_and_writes_no_audit",
+        "backend/tests/p03_02.rs::confirm_rejects_self_reservation_and_ineligible_accounts"
       ],
-      "evidence_kind": "surplus_inventory_and_offer_identity_coverage",
+      "evidence_kind": "reservation_atomicity_and_cap_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover database nonnegative bucket enforcement and typed surplus records; subsequent draft/reservation/fulfillment flows remain in their assigned domain tasks."
+      "limitations": "P03-02 proves atomic available-to-committed confirms within account caps: final-unit races yield one success, parallel offers cannot bypass caps, failures roll back with no audit."
     },
     {
       "id": "INV-002",
@@ -251,11 +257,14 @@
         "backend/tests/p03_01.rs::reserve_enforces_consumer_caps_and_rolls_back",
         "backend/tests/p03_01.rs::reserve_replay_returns_same_reservation_without_double_commit",
         "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
-        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one"
+        "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one",
+        "backend/tests/p03_02.rs::two_users_racing_for_final_units_yield_one_success",
+        "backend/tests/p03_02.rs::parallel_offers_cannot_bypass_simultaneous_commitment_cap",
+        "backend/tests/p03_02.rs::parallel_free_offers_cannot_bypass_free_reservation_cap"
       ],
       "evidence_kind": "reservation_contention_coverage",
       "verification": null,
-      "limitations": "P03-01 proves simultaneous last-unit attempts accept at most one commitment via the serialized offer row lock on real PostgreSQL."
+      "limitations": "Mapped tests add P03-02 proof that final-unit races and parallel cap races accept exactly one commitment on real PostgreSQL."
     },
     {
       "id": "INV-006",
@@ -384,22 +393,24 @@
       "tests": [
         "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies",
         "backend/tests/contract.rs::suspended_moderator_cannot_use_stale_session_permissions",
-        "backend/tests/p02_03.rs::supplier_standing_and_publication_authority_enforced"
+        "backend/tests/p02_03.rs::supplier_standing_and_publication_authority_enforced",
+        "backend/tests/p03_02.rs::confirm_rejects_self_reservation_and_ineligible_accounts"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover supplier foundation behavior and offer publication standing/authority enforcement; reservations and commitments remain pending in subsequent tasks."
+      "limitations": "Mapped tests add P03-02 proof that suspended consumers hold no reservation authority."
     },
     {
       "id": "INV-019",
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies"
+        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies",
+        "backend/tests/p03_02.rs::confirm_rejects_self_reservation_and_ineligible_accounts"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+      "limitations": "Mapped tests add P03-02 proof that supplier owners cannot confirm their own offers."
     },
     {
       "id": "INV-020",
@@ -776,11 +787,12 @@
         "backend/tests/concurrency.rs::duplicate_audit_recognition_has_one_durable_outbox",
         "backend/tests/concurrency.rs::same_command_identity_commits_one_supplier_event_and_audit",
         "backend/tests/integration.rs::command_replay_conflict_actor_scope_and_rollback",
-        "backend/tests/p02_05.rs::edit_and_withdraw_replay_idempotency"
+        "backend/tests/p02_05.rs::edit_and_withdraw_replay_idempotency",
+        "backend/tests/p03_02.rs::identical_retry_persists_a_single_reservation"
       ],
-      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "evidence_kind": "reservation_replay_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+      "limitations": "P03-02 proves identical confirm retries persist a single reservation with one stock move and one audit fact."
     },
     {
       "id": "INV-062",

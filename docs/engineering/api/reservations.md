@@ -35,10 +35,12 @@ Launch reservations confirm immediately with no online payment state:
 Each accepted unit moves atomically from `available_quantity` to
 `committed_quantity` inside one explicit PostgreSQL transaction, preserving
 the `conserved_inventory` balance. A commitment never exceeds current
-availability; rejected requests allocate no quantity. The offer row lock
-(`FOR UPDATE`, supplier-before-offer-before-reservation order) serializes
-concurrent attempts so simultaneous requests for the last unit yield at most
-one acceptance.
+availability; rejected requests allocate no quantity. Locks are taken
+consumer-first: the actor row (`FOR UPDATE`) and `Authority::Consumer` are
+acquired before supplier, offer and reservation authority, so cap checks for
+one consumer serialize and parallel confirms on different offers cannot bypass
+account-wide caps. The offer row lock then serializes concurrent attempts so
+simultaneous requests for the last unit yield at most one acceptance.
 
 ## Immutable accepted snapshot (INV-020, INV-023)
 
