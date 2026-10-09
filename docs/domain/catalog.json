@@ -1,0 +1,683 @@
+{
+  "specification_version": "1.0",
+  "source_date": "2026-10-08",
+  "source_sha256": "d7b848bd5d437cc9f3e848ee87133634fd92aaff8a6fd59836dd238521c00559",
+  "preamble": "# Sua Sobra — Business Domain Specification\n\nVersion: 1.0  \nDate: October 8, 2026  \nLanguage: English  \nStatus: Proposed business baseline for a new product\n\nThis document follows the supplied business brief. It specifies business behavior only: no software architecture, technology stack, implementation design, or code. No implemented product behavior has been assumed. Unless attributed to an external source, rules below are proposed Sua Sobra policies rather than claims about Asaas or mandatory legal requirements.\n\nAll 17 parts form one specification. A future feature has a defined business contract but is outside the MVP unless Part 14 explicitly includes it. Monetary examples use Brazilian reais (BRL). The product name, Sua Sobra, is retained as a proper name.\n\n",
+  "parts": [
+    {
+      "part": 1,
+      "title": "Executive Summary of the Domain",
+      "path": "docs/domain/01-executive-summary.md"
+    },
+    {
+      "part": 2,
+      "title": "Official Glossary",
+      "path": "docs/domain/02-glossary.md"
+    },
+    {
+      "part": 3,
+      "title": "Actors and Responsibilities",
+      "path": "docs/domain/03-actors-and-responsibilities.md"
+    },
+    {
+      "part": 4,
+      "title": "Business Entities and Concepts",
+      "path": "docs/domain/04-business-entities.md"
+    },
+    {
+      "part": 5,
+      "title": "Aggregates and Business Consistency Boundaries",
+      "path": "docs/domain/05-consistency-boundaries.md"
+    },
+    {
+      "part": 6,
+      "title": "State Machines",
+      "path": "docs/domain/06-state-machines.md"
+    },
+    {
+      "part": 7,
+      "title": "Use Cases",
+      "path": "docs/domain/07-use-cases.md"
+    },
+    {
+      "part": 8,
+      "title": "Explicit Invariants",
+      "path": "docs/domain/08-invariants.md"
+    },
+    {
+      "part": 9,
+      "title": "Domain Events",
+      "path": "docs/domain/09-domain-events.md"
+    },
+    {
+      "part": 10,
+      "title": "Automatic and Operational Policies",
+      "path": "docs/domain/10-automatic-policies.md"
+    },
+    {
+      "part": 11,
+      "title": "Payments and Financial Policies",
+      "path": "docs/domain/11-payments-and-cancellations.md"
+    },
+    {
+      "part": 12,
+      "title": "Reputation, Moderation, Antifraud, and Audit",
+      "path": "docs/domain/12-trust-moderation-and-audit.md"
+    },
+    {
+      "part": 13,
+      "title": "Monetization",
+      "path": "docs/domain/13-monetization.md"
+    },
+    {
+      "part": 14,
+      "title": "Exact MVP Scope",
+      "path": "docs/domain/14-mvp-scope.md"
+    },
+    {
+      "part": 15,
+      "title": "Domain Roadmap and Measurement",
+      "path": "docs/domain/15-roadmap-and-metrics.md"
+    },
+    {
+      "part": 16,
+      "title": "Edge Cases and Expected Behavior",
+      "path": "docs/domain/16-edge-cases.md"
+    },
+    {
+      "part": 17,
+      "title": "Final Readiness Checklist",
+      "path": "docs/domain/17-readiness-checklist.md"
+    }
+  ],
+  "definitions": {
+    "UC-001": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 7
+    },
+    "UC-002": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 17
+    },
+    "UC-003": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 27
+    },
+    "UC-004": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 37
+    },
+    "UC-005": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 47
+    },
+    "UC-006": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 57
+    },
+    "UC-007": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 67
+    },
+    "UC-008": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 77
+    },
+    "UC-009": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 87
+    },
+    "UC-010": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 97
+    },
+    "UC-011": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 107
+    },
+    "UC-012": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 117
+    },
+    "UC-013": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 127
+    },
+    "UC-014": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 137
+    },
+    "UC-015": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 147
+    },
+    "UC-016": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 157
+    },
+    "UC-017": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 167
+    },
+    "UC-018": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 177
+    },
+    "UC-019": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 187
+    },
+    "UC-020": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 197
+    },
+    "UC-021": {
+      "path": "docs/domain/07-use-cases.md",
+      "line": 207
+    },
+    "INV-001": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 3
+    },
+    "INV-002": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 4
+    },
+    "INV-003": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 5
+    },
+    "INV-004": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 6
+    },
+    "INV-005": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 7
+    },
+    "INV-006": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 8
+    },
+    "INV-007": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 9
+    },
+    "INV-008": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 10
+    },
+    "INV-009": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 11
+    },
+    "INV-010": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 12
+    },
+    "INV-011": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 13
+    },
+    "INV-012": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 14
+    },
+    "INV-013": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 15
+    },
+    "INV-014": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 16
+    },
+    "INV-015": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 17
+    },
+    "INV-016": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 18
+    },
+    "INV-017": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 19
+    },
+    "INV-018": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 20
+    },
+    "INV-019": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 21
+    },
+    "INV-020": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 22
+    },
+    "INV-021": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 23
+    },
+    "INV-022": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 24
+    },
+    "INV-023": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 25
+    },
+    "INV-024": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 26
+    },
+    "INV-025": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 27
+    },
+    "INV-026": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 28
+    },
+    "INV-027": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 29
+    },
+    "INV-028": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 30
+    },
+    "INV-029": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 31
+    },
+    "INV-030": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 32
+    },
+    "INV-031": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 33
+    },
+    "INV-032": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 34
+    },
+    "INV-033": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 35
+    },
+    "INV-034": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 36
+    },
+    "INV-035": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 37
+    },
+    "INV-036": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 38
+    },
+    "INV-037": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 39
+    },
+    "INV-038": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 40
+    },
+    "INV-039": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 41
+    },
+    "INV-040": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 42
+    },
+    "INV-041": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 43
+    },
+    "INV-042": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 44
+    },
+    "INV-043": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 45
+    },
+    "INV-044": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 46
+    },
+    "INV-045": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 47
+    },
+    "INV-046": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 48
+    },
+    "INV-047": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 49
+    },
+    "INV-048": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 50
+    },
+    "INV-049": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 51
+    },
+    "INV-050": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 52
+    },
+    "INV-051": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 53
+    },
+    "INV-052": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 54
+    },
+    "INV-053": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 55
+    },
+    "INV-054": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 56
+    },
+    "INV-055": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 57
+    },
+    "INV-056": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 58
+    },
+    "INV-057": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 59
+    },
+    "INV-058": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 60
+    },
+    "INV-059": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 61
+    },
+    "INV-060": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 62
+    },
+    "INV-061": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 63
+    },
+    "INV-062": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 64
+    },
+    "INV-063": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 65
+    },
+    "INV-064": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 66
+    },
+    "INV-065": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 67
+    },
+    "INV-066": {
+      "path": "docs/domain/08-invariants.md",
+      "line": 68
+    },
+    "EDGE-001": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 7
+    },
+    "EDGE-002": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 8
+    },
+    "EDGE-003": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 9
+    },
+    "EDGE-004": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 10
+    },
+    "EDGE-005": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 11
+    },
+    "EDGE-006": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 12
+    },
+    "EDGE-007": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 13
+    },
+    "EDGE-008": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 14
+    },
+    "EDGE-009": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 15
+    },
+    "EDGE-010": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 16
+    },
+    "EDGE-011": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 20
+    },
+    "EDGE-012": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 21
+    },
+    "EDGE-013": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 22
+    },
+    "EDGE-014": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 23
+    },
+    "EDGE-015": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 24
+    },
+    "EDGE-016": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 25
+    },
+    "EDGE-017": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 26
+    },
+    "EDGE-018": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 27
+    },
+    "EDGE-019": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 28
+    },
+    "EDGE-020": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 29
+    },
+    "EDGE-021": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 30
+    },
+    "EDGE-022": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 31
+    },
+    "EDGE-023": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 32
+    },
+    "EDGE-024": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 33
+    },
+    "EDGE-025": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 34
+    },
+    "EDGE-026": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 35
+    },
+    "EDGE-027": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 36
+    },
+    "EDGE-028": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 37
+    },
+    "EDGE-029": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 38
+    },
+    "EDGE-030": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 39
+    },
+    "EDGE-031": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 43
+    },
+    "EDGE-032": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 44
+    },
+    "EDGE-033": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 45
+    },
+    "EDGE-034": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 46
+    },
+    "EDGE-035": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 47
+    },
+    "EDGE-036": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 48
+    },
+    "EDGE-037": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 49
+    },
+    "EDGE-038": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 50
+    },
+    "EDGE-039": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 51
+    },
+    "EDGE-040": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 52
+    },
+    "EDGE-041": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 53
+    },
+    "EDGE-042": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 54
+    },
+    "EDGE-043": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 55
+    },
+    "EDGE-044": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 56
+    },
+    "EDGE-045": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 57
+    },
+    "EDGE-046": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 58
+    },
+    "EDGE-047": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 59
+    },
+    "EDGE-048": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 60
+    },
+    "EDGE-049": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 61
+    },
+    "EDGE-050": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 62
+    },
+    "EDGE-051": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 66
+    },
+    "EDGE-052": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 67
+    },
+    "EDGE-053": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 68
+    },
+    "EDGE-054": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 69
+    },
+    "EDGE-055": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 70
+    },
+    "EDGE-056": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 71
+    },
+    "EDGE-057": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 72
+    },
+    "EDGE-058": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 73
+    },
+    "EDGE-059": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 74
+    },
+    "EDGE-060": {
+      "path": "docs/domain/16-edge-cases.md",
+      "line": 75
+    }
+  }
+}

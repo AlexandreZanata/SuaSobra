@@ -1,0 +1,33 @@
+## Part 2 — Official Glossary
+
+- **Surplus:** an identifiable excess, leftover, remaining batch, offcut, condition-based opportunity, or reusable material meeting the eligibility policy.
+- **Offer:** the supplier's publication of a defined surplus unit under a quantity, price, location, timing, condition, and payment policy.
+- **Supplier:** the authorized person or organization accountable for an offer and its fulfillment.
+- **Consumer:** the person who makes a reservation and accepts responsibility for collecting it.
+- **Establishment:** the supplier's local business identity responsible for a pickup point and its operations.
+- **Reservation:** a consumer's quantity commitment and accepted commercial terms. A temporary commitment is not yet a valid pickup entitlement; a confirmed reservation is.
+- **Transaction:** the commercial record linking one reservation to its quantity allocation, payment obligation when applicable, pickup outcome, cancellations, refunds, and disputes. It exists for free reservations too.
+- **Pickup:** the verified, final handover of the actual agreed quantity at the accepted pickup point.
+- **Sellable unit:** the indivisible unit counted for a particular offer. A pack of 15 breads is one unit if advertised that way.
+- **Lot:** a described collection sold or given away as one indivisible sellable unit.
+- **Surprise bag:** an indivisible surplus assortment with an honest category, condition, relevant safety disclosures, general contents, and quantity or value promise; exact contents may vary within that promise.
+- **Box or basket:** a fixed grouping with a declared contents rule and size or quantity basis; it may have disclosed variation but is one sellable unit.
+- **Availability:** quantity eligible for a new reservation at the current time, under all lifecycle, safety, supplier, and policy conditions.
+- **Temporary commitment:** quantity held exclusively while an online payment obligation is awaiting confirmation.
+- **Booking interval:** the period during which new quantity commitments can be accepted.
+- **Pickup interval:** the period during which an accepted reservation can be fulfilled.
+- **Hard safety limit:** the latest allowed handover time due to declared expiry, condition, or safety constraints; it cannot be extended by grace.
+- **Expiry:** ending a time-limited right or availability at its applicable deadline, with the affected object explicitly identified.
+- **No-show:** a resolved consumer-attributed failure to collect a valid, fulfillable reservation before its effective pickup deadline.
+- **Supplier failure:** a resolved supplier-attributed failure to provide the promised safe quantity at the agreed place and time.
+- **Cancellation:** an explicit end to an unfulfilled obligation, with actor, reason, quantity disposition, and financial consequences recorded.
+- **Refund:** a confirmed return of previously received funds; a refund request or approval alone is not a completed refund.
+- **Progressive pricing:** a predeclared sequence of strictly later price stages with non-increasing prices, possibly ending at zero.
+- **Payment obligation:** the exact amount owed for one reservation under its accepted terms. Free reservations have no payment obligation.
+- **Payment attempt:** one attempt to satisfy an obligation. A failed attempt is historical evidence, not a new obligation.
+- **Reimbursement obligation:** the tracked amount Sua Sobra's refund policy requires to be returned, even when execution is pending or blocked.
+- **Review:** one eligible participant's feedback on a completed pickup transaction.
+- **Report:** an allegation submitted for moderation; it is not evidence that the allegation is true.
+- **Business aggregate:** a group of concepts whose stated rules must remain consistent during a business action, independent of implementation.
+- **Policy version:** the exact commercial and operational rules accepted for a commitment or applied to a later action.
+

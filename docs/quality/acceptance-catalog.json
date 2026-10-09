@@ -1,0 +1,1216 @@
+{
+  "schema_version": 1,
+  "note": "Rust foundation and supplier behavior has executable coverage. Partial foundation coverage does not claim completed offer/reservation/trust flows. Financial/advanced scope remains deferred by ADR-002; private Python evidence is historical only.",
+  "items": [
+    {
+      "id": "UC-001",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/integration.rs::supplier_lifecycle_permissions_and_persisted_events",
+        "backend/tests/concurrency.rs::competing_moderator_transitions_cannot_both_commit"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "UC-002",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-003",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-004",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-005",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-006",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-007",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-008",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-009",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-010",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-011",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-012",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-013",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-014",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-015",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-016",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-017",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-018",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-019",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-020",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "UC-021",
+      "source": "docs/domain/07-use-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-001",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-002",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-003",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-004",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-005",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-006",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-007",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-008",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-009",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-010",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-011",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-012",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/unit.rs::quantity_audits_require_actor_reason_and_exact_delta",
+        "backend/tests/integration.rs::audit_outbox_corrections_redaction_and_database_immutability"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-013",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-014",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-015",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-016",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-017",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-018",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies",
+        "backend/tests/contract.rs::suspended_moderator_cannot_use_stale_session_permissions"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-019",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-020",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota",
+        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-021",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-022",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-023",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-024",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-025",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-026",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-027",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-028",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-029",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-030",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-031",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-032",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-033",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-034",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-035",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-036",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-037",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-038",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-039",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-040",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-041",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-042",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-043",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-044",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-045",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-046",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-047",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-048",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-049",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-050",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-051",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-052",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-053",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-054",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-055",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-056",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-057",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-058",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-059",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-060",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/integration.rs::audit_outbox_corrections_redaction_and_database_immutability",
+        "backend/tests/integration.rs::failed_history_insert_rolls_back_point_audit_and_replay"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-061",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/integration.rs::command_replay_conflict_actor_scope_and_rollback",
+        "backend/tests/concurrency.rs::same_command_identity_commits_one_supplier_event_and_audit",
+        "backend/tests/concurrency.rs::duplicate_audit_recognition_has_one_durable_outbox"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-062",
+      "source": "docs/domain/08-invariants.md",
+      "status": "implemented",
+      "tests": [
+        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies"
+      ],
+      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+    },
+    {
+      "id": "INV-063",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-064",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-065",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "INV-066",
+      "source": "docs/domain/08-invariants.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-001",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-002",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-003",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-004",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-005",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-006",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-007",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-008",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-009",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-010",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-011",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-012",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-013",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-014",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-015",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-016",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-017",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-018",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-019",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-020",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-021",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-022",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-023",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-024",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-025",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-026",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-027",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-028",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-029",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-030",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-031",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-032",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-033",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-034",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-035",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-036",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-037",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-038",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-039",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-040",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-041",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-042",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-043",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-044",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-045",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-046",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-047",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-048",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-049",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-050",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-051",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-052",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-053",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-054",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-055",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-056",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-057",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-058",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-059",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    },
+    {
+      "id": "EDGE-060",
+      "source": "docs/domain/16-edge-cases.md",
+      "status": "planned",
+      "tests": [],
+      "evidence_kind": "pending",
+      "verification": null
+    }
+  ]
+}

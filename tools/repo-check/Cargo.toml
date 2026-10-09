@@ -1,0 +1,10 @@
+[package]
+name = "repo-check"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[dependencies]
+regex = "=1.13.1"
+serde_json = "=1.0.151"

@@ -1,0 +1,69 @@
+## Part 8 — Explicit Invariants
+
+- **INV-001:** every quantity bucket is nonnegative.
+- **INV-002:** admitted quantity equals the sum of its six current dispositions in Part 5.
+- **INV-003:** a sellable unit belongs to only one current disposition, and the same physical goods cannot be concurrently advertised or committed across overlapping offers.
+- **INV-004:** a commitment never exceeds current available quantity.
+- **INV-005:** simultaneous attempts for the last unit yield at most one accepted commitment.
+- **INV-006:** rejected or merely initiated requests allocate no quantity.
+- **INV-007:** reservation release or disposal occurs at most once for each remaining quantity.
+- **INV-008:** handed-over quantity never exceeds accepted quantity.
+- **INV-009:** one reservation permits at most one final handover.
+- **INV-010:** indivisible units, including lots and surprise bags, cannot be split at pickup.
+- **INV-011:** a separable-unit partial handover explicitly ends and disposes of the uncollected remainder.
+- **INV-012:** quantity adjustments always have an actor, reason, prior value, and resulting value.
+- **INV-013:** available stock cannot be reduced by altering already committed quantity.
+- **INV-014:** a refund does not automatically make handed-over goods available again.
+- **INV-015:** every offer has one accountable supplier, establishment, point, category, and unit definition.
+- **INV-016:** every published offer has a substantiated surplus classification.
+- **INV-017:** a zero price does not exempt eligibility, condition, or safety checks.
+- **INV-018:** only eligible standing and publication authority permit new supplier commitments.
+- **INV-019:** consumers cannot reserve or review their own supplier's offers.
+- **INV-020:** accepted price, quantity, condition promise, point, interval, and policy version cannot be worsened retroactively.
+- **INV-021:** displayed price alone grants no price lock or stock priority.
+- **INV-022:** an accepted temporary commitment locks price until its original deadline.
+- **INV-023:** new price stages do not alter old commitments.
+- **INV-024:** progressive stages have strictly increasing times and non-increasing nonnegative prices.
+- **INV-025:** zero-priced new commitments carry no payment obligation or compulsory fee.
+- **INV-026:** new booking requires an open booking interval and positive eligible availability.
+- **INV-027:** offer booking expiry does not invalidate a confirmed later pickup entitlement.
+- **INV-028:** effective pickup deadline never exceeds a hard safety or confirmed service limit.
+- **INV-029:** a payment retry never extends its original quantity commitment.
+- **INV-030:** free and establishment-payment confirmation allocate stock without an online payment attempt.
+- **INV-031:** one payment obligation belongs to exactly one reservation.
+- **INV-032:** one receipt cannot satisfy multiple obligations.
+- **INV-033:** online confirmation requires substantiated matching financial receipt, not a screenshot or supplier assertion.
+- **INV-034:** timely exact payment confirms only a still-live commitment.
+- **INV-035:** late received money never revives an ended reservation.
+- **INV-036:** duplicate, surplus, or unmatched receipts are accounted for explicitly.
+- **INV-037:** refund approval is distinct from confirmed money returned.
+- **INV-038:** cumulative confirmed returns and overlapping recoveries never exceed original received funds.
+- **INV-039:** insufficient refund funding does not extinguish a reimbursement obligation.
+- **INV-040:** uncollected paid quantity is fully refundable under the MVP policy, without consumer cancellation or no-show fees.
+- **INV-041:** the consumer cannot pay a higher retrospective total for the same accepted obligation.
+- **INV-042:** an online obligation cannot be informally converted into an establishment payment.
+- **INV-043:** physical handover and financial dispute positions are independently preserved.
+- **INV-044:** no-show requires a confirmed fulfillable entitlement and resolved consumer responsibility.
+- **INV-045:** unpaid commitment expiry cannot cause a no-show penalty.
+- **INV-046:** supplier failure and force majeure cannot be counted as consumer no-show.
+- **INV-047:** a report alone does not count as a confirmed reputational incident.
+- **INV-048:** one author can review a completed transaction only once.
+- **INV-049:** participants without a completed handover are ineligible for that transaction's star review.
+- **INV-050:** corrected attribution corrects reputation without deleting the original decision.
+- **INV-051:** terminal offer status cannot reopen; republication requires a new genuine declaration.
+- **INV-052:** one offer's first publication or accepted scheduling consumes exactly one allowance.
+- **INV-053:** cancellation, editing, resumption, and moderation removal do not generate repeated allowance charges or automatic restoration.
+- **INV-054:** plan changes cannot cancel or worsen live accepted reservations.
+- **INV-055:** recurring templates cannot create available quantity without occurrence confirmation.
+- **INV-056:** demand matching creates no quantity entitlement.
+- **INV-057:** private exact locations are shared only with authorized holders at the permitted stage.
+- **INV-058:** estimates and supplier declarations are labeled distinctly from measured results.
+- **INV-059:** savings cannot be calculated from an invented ordinary price or a cancelled pickup.
+- **INV-060:** every consequential action preserves who acted, what changed, when, why, and under which policy.
+- **INV-061:** repeated recognition of an already resolved event creates no repeated quantity, money, reputation, or allowance effect.
+- **INV-062:** account closure and sanctions preserve outstanding refunds and case participation.
+- **INV-063:** public food disclosures cannot conceal age, relevant expiry, storage needs, or known material safety information.
+- **INV-064:** no deadline can be silently extended by a price change, pause, payment retry, or recurrence template.
+- **INV-065:** consumer caps apply across simultaneous commitments and, for an offer's cumulative quantity cap, already collected units.
+- **INV-066:** mandatory charges and payment-mode conditions are visible before acceptance.
+

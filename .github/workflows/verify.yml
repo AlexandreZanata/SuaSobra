@@ -1,0 +1,37 @@
+name: verify
+
+'on':
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-24.04
+    env:
+      TEST_DATABASE_URL: postgres://suasobra:suasobra@127.0.0.1:5432/suasobra_test
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_DB: suasobra_test
+          POSTGRES_USER: suasobra
+          POSTGRES_PASSWORD: suasobra
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suasobra -d suasobra_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4.2.2
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+      - name: Verify documentation and Rust backend against PostgreSQL 18.6
+        run: make verify
+      - name: Build release executable
+        run: make build

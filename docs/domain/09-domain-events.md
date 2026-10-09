@@ -1,0 +1,60 @@
+## Part 9 — Domain Events
+
+Each event records the applicable objects, actor or policy, effective and recognized times, prior/resulting state, affected quantity or amount, reason, evidence, and policy version. The following entries define **trigger; meaning; consequence**.
+
+- **SupplierRegistered:** identity declared; approval requested; publication remains unavailable.
+- **SupplierApproved / SupplierRejected:** eligibility decision; supplier standing determined; publication allowed or withheld with reason.
+- **SupplierStandingChanged:** warning, restriction, restoration, or closure decided; standing changed; existing commitments assessed explicitly.
+- **OfferCreated:** draft saved; surplus preparation exists; no stock priority or publication allowance consumed.
+- **OfferChanged:** an authorized non-price declaration changes; new future terms exist; accepted terms stay protected.
+- **OfferScheduled:** complete future publication accepted; supplier commits to opening subject to eligibility; allowance consumed once.
+- **OfferPublished:** booking opens; truthful surplus is discoverable; new commitments may be accepted.
+- **PublicationAllowanceConsumed:** first publication/scheduling accepted; one period entitlement used; remaining allowance decreases.
+- **OfferPaused / OfferResumed:** booking temporarily stops/restarts; discovery eligibility changes; existing entitlement remains unless explicitly cancelled.
+- **OfferClosed:** supplier stops booking while retaining fulfillment promises; unsold stock withdrawn; confirmed pickups continue.
+- **OfferExpired:** booking deadline reached; new commitments forbidden; uncommitted quantity expires.
+- **OfferCancelled:** supplier abandons unfulfilled offer; new booking ends; affected commitments cancel and refunds become due.
+- **OfferRemoved:** moderation prohibits the publication; discovery and new entitlement stop; affected reservations receive containment and remedies.
+- **QuantityAdded:** genuine extra surplus admitted; quantity total and availability grow together; prior commitments unchanged.
+- **QuantityCommitted:** accepted quantity allocated; exclusive claim begins; availability decreases once.
+- **QuantityReleased:** an allocation ends while resale remains eligible; stock becomes available; new acceptance may occur.
+- **QuantityWithdrawn:** units leave market for shortage, closure, condition, or supplier decision; explicit stock disposition; unsafe or absent units cannot reappear without a new verified declaration.
+- **QuantityExpired:** quantity passes its eligible offer interval; stock moves to expired disposition; no automatic republication.
+- **OfferSoldOut:** availability becomes zero during publication; all currently admitted usable units allocated or fulfilled; no new reservation until a permitted addition/release.
+- **ReservationCreated:** commitment accepted with protected terms; transaction begins; account caps apply.
+- **ReservationConfirmed:** payment is satisfied or payment mode allows direct confirmation; collection entitlement becomes valid; quantity becomes confirmed reserved.
+- **ReservationCancelled:** authorized unfulfilled entitlement ended; actor/reason recorded; stock and refunds follow the cancellation matrix.
+- **ReservationExpired:** unpaid accepted commitment reaches its deadline or is definitively unsatisfied; entitlement ends; quantity disposed of with no no-show consequence.
+- **ReservationEnded:** confirmed collection entitlement reaches terminal non-handover outcome; no further automatic pickup; stock and refund consequences happen once.
+- **PaymentCreated / PaymentPending:** accepted obligation/attempt exists; money is still due; no online pickup entitlement yet.
+- **PaymentAttemptFailed:** one attempt rejected; historical failure recorded; retry only within the original live interval.
+- **PaymentConfirmed:** exact matching receipt accepted in time; obligation satisfied; reservation confirms if still eligible.
+- **PaymentExpired / PaymentCancelled:** original obligation cannot create fulfillment rights; future receipt is exceptional; quantity commitment ends according to reservation rules.
+- **LatePaymentRecognized:** receipt accepted after entitlement ended; money received without stock right; refund obligation created.
+- **ExcessPaymentRecognized:** duplicate or excess funds received; excess is not revenue earned; reconcile and refund without double fulfillment.
+- **EstablishmentPaymentAcknowledged:** parties substantiate local receipt; local obligation satisfied; handover may complete.
+- **PickupVerified:** collector and entitlement checked; no handover yet; quantity remains reserved.
+- **PickupConfirmed:** actual final handover verified; measured quantity reused; transaction review eligibility and realized metrics may arise.
+- **PartialFulfillmentRecorded:** fewer separable units handed over by agreement; remainder explicitly ended; partial refund and stock disposition calculated.
+- **PickupMissed:** deadline reached without recorded handover; attribution unresolved; entitlement ends and evidence window begins.
+- **OutcomeAttributed:** missed or failed pickup responsibility resolved; consumer, supplier, or neutral cause identified; reputation reflects the resolved cause.
+- **NoShowRecorded:** consumer-attributed non-collection resolved; reliability incident exists; proportional warning/restriction may follow.
+- **SupplierFailureRecorded:** missing, unsafe, materially different, or unavailable fulfillment substantiated; supplier incident exists; consumer no-show excluded.
+- **RefundRequested / RefundApproved / RefundRejected:** policy entitlement assessed; specified amount has pending or denied remedy; financial case retains rationale.
+- **RefundStarted / RefundFailed / RefundCompleted:** return attempted, obstructed, or substantiated; actual money status distinguished; outstanding obligation decreases only on completion.
+- **FinancialDisputeOpened / FinancialDisputeResolved:** payment challenged and later determined; exposure and outcome recorded; prevent overlapping recovery and preserve pickup history.
+- **OfferPriceChanged:** future price changed; new booking uses new terms; accepted terms untouched.
+- **PriceScheduleChanged / PriceScheduleCancelled:** future staged terms revised or stopped; version and current price preserved; no retrospective stage rewrite.
+- **PriceStageActivated:** scheduled time reached; current new-booking price becomes effective; stale unaccepted prices require renewed acceptance.
+- **OfferBecameFree:** new-booking price reaches zero; new reservations use free policy; existing paid obligations unchanged.
+- **ReviewEligibilityGranted / ReviewSubmitted / ReviewPublished:** completed participants become eligible and submit feedback; one review per author; public feedback follows the publication window.
+- **ReputationUpdated:** resolved evidence or eligible reviews change indicators; basis recorded; reversal corrects the summary.
+- **ReportSubmitted:** allegation accepted; moderation case exists; no presumption of guilt.
+- **ModerationContainmentApplied / ModerationDecisionIssued:** urgent protection or reasoned finding made; restrictions/remedies assigned; appeal opportunity preserved.
+- **ConsumerRestrictionChanged:** proportionate reservation restriction imposed/lifted; scope and end conditions published; support and refunds remain accessible.
+- **PlanChangeRequested / PlanChangeScheduled / PlanActivated / PlanPeriodEnded:** benefit changes accepted and become effective; allowance and benefits apply prospectively; reservations unaffected.
+- **InterestsChanged / RelevantOpportunityIdentified:** consumer relevance settings change or eligible match appears; potential alert exists; no quantity entitlement.
+- **RecurrenceOccurrenceConfirmed:** today's actual surplus declared; new occurrence eligible for publication; template itself remains non-stock.
+- **DemandPublished / DemandMatched / DemandFulfilled / DemandExpired / DemandCancelled:** future wanted-surplus lifecycle progresses; suggestions or remaining demand change; reservations stay separate.
+- **BusinessCorrectionRecorded:** proven error corrected with prior fact retained; quantity/money/attribution reconciled; no fabricated second operation.
+

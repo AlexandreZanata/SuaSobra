@@ -1,0 +1,8 @@
+---
+description: Repository-wide instructions for AI-maintained Sua Sobra work
+alwaysApply: true
+---
+
+Read and follow root `AGENTS.md`, the canonical cross-agent instruction file.
+Use `docs/README.md` for routing and `docs/domain/catalog.json` for definitions.
+Private plans in `.local/` are not versioned deliverables.

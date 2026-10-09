@@ -1,0 +1,21 @@
+# Private plans, machine-local progress, runtime state, and credentials.
+/.local/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+node_modules/
+dist/
+coverage/
+/media/
+/backups/
+.DS_Store
+.idea/
+.vscode/
+# Rust build output.
+/target/
+/backend/target/
+
+# Native repository validation tool build output.
+/tools/repo-check/target/

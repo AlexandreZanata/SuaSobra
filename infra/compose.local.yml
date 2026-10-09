@@ -1,0 +1,34 @@
+name: suasobra
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    container_name: suasobra-postgres18
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5448}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-suasobra}
+      POSTGRES_USER: ${POSTGRES_USER:-suasobra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-suasobra}
+    volumes:
+      - postgres18_data:/var/lib/postgresql
+    configs:
+      - source: init_test_db
+        target: /docker-entrypoint-initdb.d/01-init-test-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-suasobra} -d ${POSTGRES_DB:-suasobra}"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 3s
+
+volumes:
+  postgres18_data:
+    name: suasobra_postgres18_data
+
+configs:
+  init_test_db:
+    content: |
+      CREATE DATABASE suasobra_test;
+      GRANT ALL PRIVILEGES ON DATABASE suasobra_test TO suasobra;
