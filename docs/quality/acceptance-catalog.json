@@ -184,7 +184,8 @@
       "status": "implemented",
       "tests": [
         "backend/tests/p02_01.rs::database_rejects_negative_quantity_buckets",
-        "backend/tests/p02_01.rs::surplus_identity_and_buckets_persist_with_uuidv7"
+        "backend/tests/p02_01.rs::surplus_identity_and_buckets_persist_with_uuidv7",
+        "backend/tests/p02_05.rs::concurrent_withdrawals_keep_conserved_buckets"
       ],
       "evidence_kind": "surplus_inventory_and_offer_identity_coverage",
       "verification": null,
@@ -279,20 +280,28 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/unit.rs::quantity_audits_require_actor_reason_and_exact_delta",
-        "backend/tests/integration.rs::audit_outbox_corrections_redaction_and_database_immutability"
+        "backend/tests/integration.rs::audit_outbox_corrections_redaction_and_database_immutability",
+        "backend/tests/p02_05.rs::edit_draft_quantity_up_and_down_keeps_conservation_and_audits",
+        "backend/tests/p02_05.rs::edit_rejects_missing_reason_and_zero_quantity",
+        "backend/tests/p02_05.rs::http_patch_edit_and_post_withdraw_require_owner_and_reason",
+        "backend/tests/unit.rs::quantity_audits_require_actor_reason_and_exact_delta"
       ],
-      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "evidence_kind": "offer_correction_and_withdrawal_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+      "limitations": "Mapped tests add P02-05 owner-authorized correction/withdrawal reason, actor, prior/resulting audit coverage; reservation and handover adjustments remain in their assigned tasks."
     },
     {
       "id": "INV-013",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_05.rs::edit_rejects_oversubtraction_and_committed_rewrite_without_event",
+        "backend/tests/p02_05.rs::withdraw_moves_only_uncommitted_availability_to_disposed",
+        "backend/tests/p02_05.rs::concurrent_withdrawals_keep_conserved_buckets"
+      ],
+      "evidence_kind": "offer_correction_and_withdrawal_coverage",
+      "verification": null,
+      "limitations": "Mapped tests prove edits move only admitted+available together, withdrawals move only available to disposed, committed/fulfilled never rewritten, and races keep conserved buckets; reservation release rules remain in P03/P04."
     },
     {
       "id": "INV-014",
@@ -367,12 +376,14 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota",
-        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history"
+        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history",
+        "backend/tests/p02_05.rs::edit_published_offer_preserves_accepted_terms",
+        "backend/tests/p02_05.rs::terminal_offers_cannot_be_edited_or_withdrawn_again",
+        "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota"
       ],
-      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "evidence_kind": "offer_correction_and_withdrawal_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+      "limitations": "Mapped tests add P02-05 proof that quantity correction/withdrawal leaves accepted price, intervals, point and policy immutable and terminal offers cannot reopen; reservation term protection remains in P03."
     },
     {
       "id": "INV-021",
@@ -711,9 +722,10 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/integration.rs::command_replay_conflict_actor_scope_and_rollback",
+        "backend/tests/concurrency.rs::duplicate_audit_recognition_has_one_durable_outbox",
         "backend/tests/concurrency.rs::same_command_identity_commits_one_supplier_event_and_audit",
-        "backend/tests/concurrency.rs::duplicate_audit_recognition_has_one_durable_outbox"
+        "backend/tests/integration.rs::command_replay_conflict_actor_scope_and_rollback",
+        "backend/tests/p02_05.rs::edit_and_withdraw_replay_idempotency"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,

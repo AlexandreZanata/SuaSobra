@@ -383,11 +383,45 @@ impl PublishOfferInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EditOfferInput {
+    #[serde(default)]
+    pub offer_id: Option<Uuid>,
+    pub admitted_quantity: u64,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WithdrawOfferInput {
+    #[serde(default)]
+    pub offer_id: Option<Uuid>,
+    pub reason: String,
+}
+
+fn validate_correction_reason(reason: &str) -> Result<String> {
+    let trimmed = reason.trim();
+    if trimmed.chars().count() < 5 {
+        return Err(AppError::validation(
+            "A correction/withdrawal reason of at least 5 characters is required (INV-012)",
+        ));
+    }
+    if trimmed.chars().count() > 1000 {
+        return Err(AppError::validation(
+            "Correction/withdrawal reason must be at most 1000 characters",
+        ));
+    }
+    Ok(trimmed.to_owned())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum Command {
     CreateSurplus(CreateSurplusInput),
     CreateDraft(CreateDraftInput),
     PublishOffer(PublishOfferInput),
+    EditOffer(EditOfferInput),
+    WithdrawOffer(WithdrawOfferInput),
 }
 
 pub async fn execute(
@@ -928,6 +962,254 @@ pub async fn execute(
                 prior_quantity: Some(offer.admitted_quantity),
                 resulting_quantity: Some(offer.admitted_quantity),
                 quantity_delta: Some(0),
+                ..Default::default()
+            };
+            fact.record(&mut tx, None).await?;
+
+            replay.finish(&mut tx, 200, &offer_val).await?;
+            (StatusCode::OK, offer_val)
+        }
+        Command::EditOffer(input) => {
+            let offer_id = input
+                .offer_id
+                .ok_or_else(|| AppError::validation("offer_id is required to edit an offer"))?;
+            let reason = validate_correction_reason(&input.reason)?;
+            if input.admitted_quantity == 0 {
+                return Err(AppError::validation(
+                    "Admitted quantity must be positive; withdraw the offer instead of setting zero",
+                ));
+            }
+            let command_json = serde_json::to_value(input).map_err(|_| AppError::internal())?;
+            let (replay, cached) = Replay::begin(
+                &mut tx,
+                actor.id,
+                "edit_offer",
+                idempotency_key,
+                &command_json,
+            )
+            .await?;
+            if let Some((code, payload)) = cached {
+                return Ok((
+                    StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+                    payload,
+                ));
+            }
+
+            // Supplier-before-offer row locks: resolve authority first without locking,
+            // then lock supplier authority before the offer row (INV-012, INV-013, INV-020).
+            let supplier_id: Option<Uuid> =
+                sqlx::query_scalar("SELECT supplier_id FROM suasobra.offers WHERE id=$1")
+                    .bind(offer_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            let supplier_id = supplier_id.ok_or_else(AppError::missing)?;
+
+            let mut lock = LockOrder::default();
+            lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
+
+            let supplier_row: Option<(Uuid, String)> = sqlx::query_as(
+                "SELECT owner_id, standing FROM suasobra.suppliers WHERE id=$1 FOR UPDATE",
+            )
+            .bind(supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            let (owner_id, standing) = supplier_row.ok_or_else(AppError::missing)?;
+            if owner_id != actor.id && !actor.moderator() {
+                return Err(AppError::forbidden());
+            }
+            if standing == "closed" {
+                return Err(AppError::validation("Supplier is closed"));
+            }
+
+            let offer: Option<Offer> =
+                sqlx::query_as("SELECT * FROM suasobra.offers WHERE id=$1 FOR UPDATE")
+                    .bind(offer_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            let offer = offer.ok_or_else(AppError::missing)?;
+
+            if !matches!(
+                offer.status.as_str(),
+                "draft" | "scheduled" | "published" | "paused"
+            ) {
+                return Err(AppError::conflict(format!(
+                    "Only draft, scheduled, published or paused offers can be edited; current status is '{}'",
+                    offer.status
+                )));
+            }
+
+            // INV-013: never reduce available stock by rewriting committed/fulfilled/disposed.
+            // Only admitted and available move together by the same delta.
+            let committed_floor = offer
+                .committed_quantity
+                .checked_add(offer.fulfilled_quantity)
+                .and_then(|s| s.checked_add(offer.disposed_quantity))
+                .ok_or_else(|| AppError::validation("Bucket quantity overflow"))?;
+            let new_admitted = input.admitted_quantity as i64;
+            if new_admitted < committed_floor {
+                return Err(AppError::validation(format!(
+                    "Edited admitted quantity ({}) cannot fall below already committed/fulfilled/disposed total ({})",
+                    new_admitted, committed_floor
+                )));
+            }
+            let delta = new_admitted
+                .checked_sub(offer.admitted_quantity)
+                .ok_or_else(|| AppError::validation("Quantity overflow"))?;
+            let new_available = offer
+                .available_quantity
+                .checked_add(delta)
+                .ok_or_else(|| AppError::validation("Quantity overflow"))?;
+            if new_available < 0 {
+                return Err(AppError::validation(
+                    "Edited quantity would oversubtract uncommitted availability (INV-001, INV-013)",
+                ));
+            }
+
+            // INV-020: accepted terms other than uncommitted availability stay immutable;
+            // this command only touches admitted/available buckets.
+            sqlx::query(
+                "UPDATE suasobra.offers SET admitted_quantity=$2, available_quantity=$3, updated_at=now() WHERE id=$1",
+            )
+            .bind(offer.id)
+            .bind(new_admitted)
+            .bind(new_available)
+            .execute(&mut *tx)
+            .await?;
+
+            let offer_val: Value =
+                sqlx::query_scalar("SELECT to_jsonb(o) FROM suasobra.offers o WHERE id=$1")
+                    .bind(offer.id)
+                    .fetch_one(&mut *tx)
+                    .await?;
+            let prior_val: Value = serde_json::to_value(&offer).unwrap_or(json!({}));
+
+            let mut fact = AuditFact {
+                entity_type: "offer".into(),
+                entity_id: offer.id.to_string(),
+                action: "offer_availability_corrected".into(),
+                actor_id: Some(actor.id),
+                actor_scope: if actor.moderator() {
+                    "moderator"
+                } else {
+                    "supplier_owner"
+                }
+                .into(),
+                authority_or_policy: "2026.2-free-launch".into(),
+                evidence_kind: "supplier_declaration".into(),
+                reason,
+                prior_state: prior_val,
+                resulting_state: offer_val.clone(),
+                prior_quantity: Some(offer.available_quantity),
+                resulting_quantity: Some(new_available),
+                quantity_delta: Some(new_available - offer.available_quantity),
+                ..Default::default()
+            };
+            fact.record(&mut tx, None).await?;
+
+            replay.finish(&mut tx, 200, &offer_val).await?;
+            (StatusCode::OK, offer_val)
+        }
+        Command::WithdrawOffer(input) => {
+            let offer_id = input
+                .offer_id
+                .ok_or_else(|| AppError::validation("offer_id is required to withdraw an offer"))?;
+            let reason = validate_correction_reason(&input.reason)?;
+            let command_json = serde_json::to_value(input).map_err(|_| AppError::internal())?;
+            let (replay, cached) = Replay::begin(
+                &mut tx,
+                actor.id,
+                "withdraw_offer",
+                idempotency_key,
+                &command_json,
+            )
+            .await?;
+            if let Some((code, payload)) = cached {
+                return Ok((
+                    StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+                    payload,
+                ));
+            }
+
+            // Supplier-before-offer row locks: authority first, then the offer row.
+            let supplier_id: Option<Uuid> =
+                sqlx::query_scalar("SELECT supplier_id FROM suasobra.offers WHERE id=$1")
+                    .bind(offer_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            let supplier_id = supplier_id.ok_or_else(AppError::missing)?;
+
+            let mut lock = LockOrder::default();
+            lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
+
+            let supplier_row: Option<(Uuid, String)> = sqlx::query_as(
+                "SELECT owner_id, standing FROM suasobra.suppliers WHERE id=$1 FOR UPDATE",
+            )
+            .bind(supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            let (owner_id, _) = supplier_row.ok_or_else(AppError::missing)?;
+            if owner_id != actor.id && !actor.moderator() {
+                return Err(AppError::forbidden());
+            }
+
+            let offer: Option<Offer> =
+                sqlx::query_as("SELECT * FROM suasobra.offers WHERE id=$1 FOR UPDATE")
+                    .bind(offer_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            let offer = offer.ok_or_else(AppError::missing)?;
+
+            if !matches!(
+                offer.status.as_str(),
+                "draft" | "scheduled" | "published" | "paused"
+            ) {
+                return Err(AppError::conflict(format!(
+                    "Offer is already terminal (status '{}'); withdrawal cannot reopen it",
+                    offer.status
+                )));
+            }
+
+            // Withdraw only uncommitted availability: admitted stays, available moves to disposed.
+            // Committed/fulfilled quantities are never rewritten (INV-013, INV-020).
+            let moved = offer.available_quantity;
+            let new_disposed = offer
+                .disposed_quantity
+                .checked_add(moved)
+                .ok_or_else(|| AppError::validation("Quantity overflow"))?;
+            sqlx::query(
+                "UPDATE suasobra.offers SET status='withdrawn', available_quantity=0, disposed_quantity=$2, updated_at=now() WHERE id=$1",
+            )
+            .bind(offer.id)
+            .bind(new_disposed)
+            .execute(&mut *tx)
+            .await?;
+
+            let offer_val: Value =
+                sqlx::query_scalar("SELECT to_jsonb(o) FROM suasobra.offers o WHERE id=$1")
+                    .bind(offer.id)
+                    .fetch_one(&mut *tx)
+                    .await?;
+            let prior_val: Value = serde_json::to_value(&offer).unwrap_or(json!({}));
+
+            let mut fact = AuditFact {
+                entity_type: "offer".into(),
+                entity_id: offer.id.to_string(),
+                action: "offer_withdrawn".into(),
+                actor_id: Some(actor.id),
+                actor_scope: if actor.moderator() {
+                    "moderator"
+                } else {
+                    "supplier_owner"
+                }
+                .into(),
+                authority_or_policy: "2026.2-free-launch".into(),
+                evidence_kind: "supplier_declaration".into(),
+                reason,
+                prior_state: prior_val,
+                resulting_state: offer_val.clone(),
+                prior_quantity: Some(offer.available_quantity),
+                resulting_quantity: Some(0),
+                quantity_delta: Some(0 - offer.available_quantity),
                 ..Default::default()
             };
             fact.record(&mut tx, None).await?;

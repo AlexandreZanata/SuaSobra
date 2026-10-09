@@ -354,8 +354,9 @@ async fn dispatch(
     }
     let offer_route = match segments.as_slice() {
         ["api", "v1", "offers"] => Some(("offers", "create_draft", None)),
-        ["api", "v1", "offers", id] => Some(("", "", Some(uuid(id)?))),
+        ["api", "v1", "offers", id] => Some(("", "edit_offer", Some(uuid(id)?))),
         ["api", "v1", "offers", id, "publish"] => Some(("", "publish_offer", Some(uuid(id)?))),
+        ["api", "v1", "offers", id, "withdraw"] => Some(("", "withdraw_offer", Some(uuid(id)?))),
         ["api", "v1", "suppliers", id, "offers"] => Some(("supplier_offers", "", Some(uuid(id)?))),
         _ => None,
     };
@@ -413,8 +414,46 @@ async fn dispatch(
                     )
                     .await?
                 }
+                "withdraw_offer" => {
+                    let mut withdraw_input: marketplace::WithdrawOfferInput =
+                        serde_json::from_value(input).map_err(|e| {
+                            AppError::validation(format!("Invalid withdraw payload: {}", e))
+                        })?;
+                    if withdraw_input.offer_id.is_none() {
+                        withdraw_input.offer_id = id;
+                    }
+                    marketplace::execute(
+                        state,
+                        &actor,
+                        key,
+                        marketplace::Command::WithdrawOffer(withdraw_input),
+                    )
+                    .await?
+                }
                 _ => return Err(AppError::missing()),
             };
+            return Ok((code.as_u16(), result, vec![]));
+        }
+        if method == Method::PATCH && command == "edit_offer" {
+            let key = headers
+                .get("idempotency-key")
+                .map(|v| {
+                    v.to_str()
+                        .map_err(|_| AppError::validation("Invalid Idempotency-Key"))
+                })
+                .transpose()?;
+            let mut edit_input: marketplace::EditOfferInput = serde_json::from_value(input)
+                .map_err(|e| AppError::validation(format!("Invalid edit payload: {}", e)))?;
+            if edit_input.offer_id.is_none() {
+                edit_input.offer_id = id;
+            }
+            let (code, result) = marketplace::execute(
+                state,
+                &actor,
+                key,
+                marketplace::Command::EditOffer(edit_input),
+            )
+            .await?;
             return Ok((code.as_u16(), result, vec![]));
         }
         return Err(AppError::new(

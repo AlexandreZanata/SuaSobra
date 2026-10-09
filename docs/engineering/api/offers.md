@@ -91,6 +91,20 @@ Consumers and anonymous visitors discover nearby available surplus via `GET /api
     - Unpublished drafts, paused/closed offers, or offers on inactive sites return `404 Not Found` to outsiders.
     - Supplier owners and authorized moderators receive full unmasked point documents and draft access.
 
+## Correction and withdrawal of uncommitted availability (P02-05)
+
+Owner-authorized commands adjust only uncommitted availability. Accepted price, intervals, condition promise, pickup point and policy version stay immutable (INV-020). Both commands lock the supplier row before the offer row, require a reason of at least 5 characters with the acting owner or moderator recorded, audit prior and resulting available buckets, and support idempotent replay via `Idempotency-Key`.
+
+- **Edit availability:** `Command::EditOffer` or `PATCH /api/v1/offers/{id}/` with `{"admitted_quantity": <u64>, "reason": "..."}`.
+  - Allowed from `draft`, `scheduled`, `published` or `paused`; terminal `closed`, `withdrawn` or `expired` offers return `409 Conflict` and cannot reopen.
+  - Moves `admitted_quantity` and `available_quantity` together by the same delta; `committed`, `fulfilled` and `disposed` buckets are never rewritten (INV-013).
+  - Rejects zero quantities, reductions below `committed + fulfilled + disposed`, oversubtraction of `available`, missing reasons (INV-012, `400 Bad Request`), and outsiders (`403 Forbidden`).
+  - Audits `offer_availability_corrected` with prior and resulting available quantities and exact delta; failed edits record no event and roll back.
+- **Withdraw availability:** `Command::WithdrawOffer` or `POST /api/v1/offers/{id}/withdraw/` with `{"reason": "..."}`.
+  - Allowed from the same non-terminal states; moves the full current `available_quantity` into `disposed_quantity`, keeps `admitted_quantity` unchanged, sets `status` to `withdrawn`, and leaves committed and fulfilled quantities untouched.
+  - Terminal offers return `409 Conflict`; duplicate concurrent withdrawals leave exactly one winner with conserved buckets.
+  - Audits `offer_withdrawn` with prior available, resulting zero, and negative delta.
+
 ## Status and exposure
 
 - Draft creation: `POST /api/v1/offers/` (P02-02).
@@ -98,6 +112,7 @@ Consumers and anonymous visitors discover nearby available surplus via `GET /api
 - Individual offer retrieval: `GET /api/v1/offers/{id}/` (P02-03, updated P02-04).
 - Supplier offers list: `GET /api/v1/suppliers/{id}/offers/` (P02-03).
 - Nearby offer discovery: `GET /api/v1/offers/discover/` with bounded pagination and location privacy (P02-04).
-- Future owner-authorized quantity corrections and withdrawals (P02-05).
+- Availability correction: `PATCH /api/v1/offers/{id}/` (P02-05).
+- Availability withdrawal: `POST /api/v1/offers/{id}/withdraw/` (P02-05).
 
 
