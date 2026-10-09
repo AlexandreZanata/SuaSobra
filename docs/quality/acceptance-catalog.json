@@ -315,11 +315,17 @@
         "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
         "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
         "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
-        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end",
+        "backend/tests/p04_01.rs::holder_issues_proof_for_self_with_once_shown_secret",
+        "backend/tests/p04_01.rs::holder_nominates_collector_and_verify_returns_minimal_data",
+        "backend/tests/p04_01.rs::issue_rejects_outsiders_owner_and_bad_nominees",
+        "backend/tests/p04_01.rs::expired_and_used_proofs_reject_and_single_use_holds",
+        "backend/tests/p04_01.rs::issue_replay_returns_same_sealed_response",
+        "backend/tests/p04_01.rs::proof_rows_are_append_only"
       ],
       "evidence_kind": "reservation_cancellation_coverage",
       "verification": null,
-      "limitations": "Mapped tests add P03-05 proof of repeatable atomic expiry with exact once-only disposal and full-batch rollback on failure."
+      "limitations": "Mapped tests add P04-01 proof that pickup secrets are hashed single-use scoped evidence with holder-only issuance; handover redemption lands in P04-02."
     },
     {
       "id": "INV-008",
@@ -799,11 +805,17 @@
         "backend/tests/p03_03.rs::outsiders_and_anonymous_cannot_read_or_list",
         "backend/tests/p03_03.rs::displayed_terms_stay_stable_after_offer_and_point_edits",
         "backend/tests/p03_03.rs::consumer_and_supplier_lists_are_scoped_to_participants",
-        "backend/tests/p03_03.rs::http_reservation_routes_serve_participants_only"
+        "backend/tests/p03_03.rs::http_reservation_routes_serve_participants_only",
+        "backend/tests/p04_01.rs::holder_issues_proof_for_self_with_once_shown_secret",
+        "backend/tests/p04_01.rs::holder_nominates_collector_and_verify_returns_minimal_data",
+        "backend/tests/p04_01.rs::issue_rejects_outsiders_owner_and_bad_nominees",
+        "backend/tests/p04_01.rs::expired_and_used_proofs_reject_and_single_use_holds",
+        "backend/tests/p04_01.rs::issue_replay_returns_same_sealed_response",
+        "backend/tests/p04_01.rs::proof_rows_are_append_only"
       ],
       "evidence_kind": "reservation_disclosure_coverage",
       "verification": null,
-      "limitations": "P03-03 proves participant-only reservation reads with exact private location at the confirmed stage and 404 denials for outsiders; later lifecycle stages remain in subsequent P03 tasks."
+      "limitations": "Mapped tests add P04-01 proof that pickup secrets are hashed single-use scoped evidence with holder-only issuance; handover redemption lands in P04-02."
     },
     {
       "id": "INV-058",
