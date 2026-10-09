@@ -2,7 +2,7 @@ use crate::{
     AppState,
     error::{AppError, Result},
     identity::{self, Session},
-    suppliers,
+    marketplace, suppliers,
 };
 use axum::{
     Extension, Json, Router,
@@ -280,6 +280,83 @@ async fn dispatch(
             let (code, result) =
                 suppliers::execute(state, actor.id, command, id, key, input).await?;
             return Ok((code, result, vec![]));
+        }
+        return Err(AppError::new(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "method_not_allowed",
+            "Method not allowed.",
+        ));
+    }
+    let offer_route = match segments.as_slice() {
+        ["api", "v1", "offers"] => Some(("offers", "create_draft", None)),
+        ["api", "v1", "offers", id] => Some(("offer", "", Some(uuid(id)?))),
+        ["api", "v1", "offers", id, "publish"] => Some(("", "publish_offer", Some(uuid(id)?))),
+        ["api", "v1", "suppliers", id, "offers"] => Some(("supplier_offers", "", Some(uuid(id)?))),
+        _ => None,
+    };
+    if let Some((query, command, id)) = offer_route {
+        let actor = identity::user(state, session).await?;
+        if method == Method::GET && !query.is_empty() {
+            let result = match query {
+                "offer" => {
+                    let offer =
+                        marketplace::get_offer(&state.pool, id.ok_or_else(AppError::missing)?)
+                            .await?;
+                    serde_json::to_value(offer).map_err(|_| AppError::internal())?
+                }
+                "supplier_offers" => {
+                    let offers = marketplace::list_offers_for_supplier(
+                        &state.pool,
+                        id.ok_or_else(AppError::missing)?,
+                    )
+                    .await?;
+                    serde_json::to_value(offers).map_err(|_| AppError::internal())?
+                }
+                _ => return Err(AppError::missing()),
+            };
+            return Ok((200, result, vec![]));
+        }
+        if method == Method::POST && !command.is_empty() {
+            let key = headers
+                .get("idempotency-key")
+                .map(|v| {
+                    v.to_str()
+                        .map_err(|_| AppError::validation("Invalid Idempotency-Key"))
+                })
+                .transpose()?;
+            let (code, result) = match command {
+                "create_draft" => {
+                    let draft_input: marketplace::CreateDraftInput = serde_json::from_value(input)
+                        .map_err(|e| {
+                            AppError::validation(format!("Invalid draft payload: {}", e))
+                        })?;
+                    marketplace::execute(
+                        state,
+                        &actor,
+                        key,
+                        marketplace::Command::CreateDraft(draft_input),
+                    )
+                    .await?
+                }
+                "publish_offer" => {
+                    let mut pub_input: marketplace::PublishOfferInput =
+                        serde_json::from_value(input).map_err(|e| {
+                            AppError::validation(format!("Invalid publish payload: {}", e))
+                        })?;
+                    if pub_input.offer_id.is_none() {
+                        pub_input.offer_id = id;
+                    }
+                    marketplace::execute(
+                        state,
+                        &actor,
+                        key,
+                        marketplace::Command::PublishOffer(pub_input),
+                    )
+                    .await?
+                }
+                _ => return Err(AppError::missing()),
+            };
+            return Ok((code.as_u16(), result, vec![]));
         }
         return Err(AppError::new(
             StatusCode::METHOD_NOT_ALLOWED,

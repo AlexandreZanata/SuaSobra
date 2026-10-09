@@ -340,11 +340,12 @@
       "status": "implemented",
       "tests": [
         "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies",
-        "backend/tests/contract.rs::suspended_moderator_cannot_use_stale_session_permissions"
+        "backend/tests/contract.rs::suspended_moderator_cannot_use_stale_session_permissions",
+        "backend/tests/p02_03.rs::supplier_standing_and_publication_authority_enforced"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+      "limitations": "Mapped tests cover supplier foundation behavior and offer publication standing/authority enforcement; reservations and commitments remain pending in subsequent tasks."
     },
     {
       "id": "INV-019",
@@ -372,10 +373,13 @@
     {
       "id": "INV-021",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_03.rs::displayed_price_alone_grants_no_price_lock_or_stock_priority"
+      ],
+      "evidence_kind": "offer_publication_and_pricing_coverage",
+      "verification": null,
+      "limitations": "Mapped test proves published offers store fixed BRL or zero price directly at pickup without granting consumer lock or priority; reservations and commit locking are tested in subsequent tasks."
     },
     {
       "id": "INV-022",

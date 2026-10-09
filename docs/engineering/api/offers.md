@@ -32,9 +32,34 @@ Drafts represent validated surplus declarations before publication. The typed co
   - For non-food: Relevant `safe_handling`, `condition_notes`, or `packaging_integrity`.
 - **Unknown fields & invented prices:** Strict serialization rejection (`deny_unknown_fields`) prevents unverified original prices or unsupported parameters.
 
+## Offer publication (P02-03)
+
+Offers transition from `draft` to `published` (or `scheduled`) via `Command::PublishOffer` or `POST /api/v1/offers/{id}/publish/`. Publication enforces:
+
+- **Supplier standing (INV-018):** Supplier must be in `active` or `warned` standing. Pending, rejected, suspended, or closed suppliers are rejected.
+- **Publication authority:** Outsiders without owner or moderator authority receive `403 Forbidden`.
+- **Site eligibility:** Both the establishment and pickup point must be active.
+- **Available whole-unit stock:** Admitted and available quantity must be positive whole units.
+- **Interval eligibility:**
+  - `booking_starts_at`: Defaults to UTC `now` if omitted; if in the future, the offer transitions to status `scheduled`.
+  - `booking_ends_at`: Must be in the future and strictly after `booking_starts_at`.
+  - `pickup_starts_at`: Must be strictly before `pickup_ends_at` and cannot precede `booking_starts_at`.
+  - `pickup_ends_at`: Must be in the future and at or after `booking_ends_at`.
+- **Hard food safety limit (INV-063, INV-017, INV-028):**
+  - Unsafe or expired food is strictly rejected.
+  - Neither booking deadline nor pickup end may exceed the hard safety limit (`expiry_or_best_before`).
+- **Pricing and direct payment:**
+  - `price_cents`: Zero (`payment_mode: "free"`) or fixed BRL cents (`payment_mode: "at_pickup"`).
+  - Settled directly between participants at pickup without online payment obligations, subscriptions, or commercial quotas.
+- **No price lock on display (INV-021):**
+  - Viewing a published price or offer confers no stock priority or price lock; allocations require explicit accepted reservation commitments.
+
 ## Status and exposure
 
-Public routes remain unexposed until subsequent publication and discovery microsteps:
-- Publication with eligible pricing and pickup intervals (P02-03).
-- Discovery queries with bounded radius and location privacy (P02-04).
-- Owner-authorized quantity corrections and withdrawals (P02-05).
+- Draft creation: `POST /api/v1/offers/` (P02-02).
+- Publication: `POST /api/v1/offers/{id}/publish/` (P02-03).
+- Individual offer retrieval: `GET /api/v1/offers/{id}/` (P02-03).
+- Supplier offers list: `GET /api/v1/suppliers/{id}/offers/` (P02-03).
+- Future discovery queries with bounded radius and location privacy (P02-04).
+- Future owner-authorized quantity corrections and withdrawals (P02-05).
+

@@ -120,6 +120,11 @@ pub struct Offer {
     pub safety_disclosures: Value,
     pub price_cents: i64,
     pub currency: String,
+    pub booking_starts_at: Option<DateTime<Utc>>,
+    pub booking_ends_at: Option<DateTime<Utc>>,
+    pub pickup_starts_at: Option<DateTime<Utc>>,
+    pub pickup_ends_at: Option<DateTime<Utc>>,
+    pub payment_mode: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -304,10 +309,85 @@ pub struct CreateSurplusInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublishOfferInput {
+    #[serde(default)]
+    pub offer_id: Option<Uuid>,
+    #[serde(default)]
+    pub booking_starts_at: Option<DateTime<Utc>>,
+    pub booking_ends_at: DateTime<Utc>,
+    pub pickup_starts_at: DateTime<Utc>,
+    pub pickup_ends_at: DateTime<Utc>,
+    #[serde(default)]
+    pub price_cents: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValidatedIntervals {
+    pub booking_starts_at: DateTime<Utc>,
+    pub booking_ends_at: DateTime<Utc>,
+    pub pickup_starts_at: DateTime<Utc>,
+    pub pickup_ends_at: DateTime<Utc>,
+}
+
+impl PublishOfferInput {
+    pub fn validate_intervals(&self, now: DateTime<Utc>) -> Result<ValidatedIntervals> {
+        let booking_starts_at = self.booking_starts_at.unwrap_or(now);
+        let booking_ends_at = self.booking_ends_at;
+        let pickup_starts_at = self.pickup_starts_at;
+        let pickup_ends_at = self.pickup_ends_at;
+
+        if booking_ends_at <= booking_starts_at {
+            return Err(AppError::validation(
+                "Booking opening must precede booking closing (booking_ends_at must be after booking_starts_at)",
+            ));
+        }
+
+        if booking_ends_at <= now {
+            return Err(AppError::validation(
+                "Booking deadline (booking_ends_at) must be in the future",
+            ));
+        }
+
+        if pickup_ends_at <= pickup_starts_at {
+            return Err(AppError::validation(
+                "Pickup opening must precede pickup end (pickup_ends_at must be after pickup_starts_at)",
+            ));
+        }
+
+        if pickup_ends_at <= now {
+            return Err(AppError::validation(
+                "Pickup end (pickup_ends_at) must be in the future",
+            ));
+        }
+
+        if booking_ends_at > pickup_ends_at {
+            return Err(AppError::validation(
+                "Booking closing deadline cannot exceed pickup end (booking_ends_at must be <= pickup_ends_at)",
+            ));
+        }
+
+        if pickup_starts_at < booking_starts_at {
+            return Err(AppError::validation(
+                "Pickup opening cannot precede booking opening (pickup_starts_at must be >= booking_starts_at)",
+            ));
+        }
+
+        Ok(ValidatedIntervals {
+            booking_starts_at,
+            booking_ends_at,
+            pickup_starts_at,
+            pickup_ends_at,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum Command {
     CreateSurplus(CreateSurplusInput),
     CreateDraft(CreateDraftInput),
+    PublishOffer(PublishOfferInput),
 }
 
 pub async fn execute(
@@ -626,6 +706,234 @@ pub async fn execute(
 
             replay.finish(&mut tx, 201, &offer_val).await?;
             (StatusCode::CREATED, offer_val)
+        }
+        Command::PublishOffer(input) => {
+            let offer_id = input
+                .offer_id
+                .ok_or_else(|| AppError::validation("offer_id is required to publish an offer"))?;
+            let command_json = serde_json::to_value(input).map_err(|_| AppError::internal())?;
+            let (replay, cached) = Replay::begin(
+                &mut tx,
+                actor.id,
+                "publish_offer",
+                idempotency_key,
+                &command_json,
+            )
+            .await?;
+            if let Some((code, payload)) = cached {
+                return Ok((
+                    StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+                    payload,
+                ));
+            }
+
+            // Fetch and lock the target offer
+            let offer: Option<Offer> =
+                sqlx::query_as("SELECT * FROM suasobra.offers WHERE id = $1 FOR UPDATE")
+                    .bind(offer_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+
+            let offer = offer.ok_or_else(AppError::missing)?;
+
+            // Only draft offers can be published
+            if offer.status != "draft" {
+                return Err(AppError::conflict(format!(
+                    "Only draft offers can be published; current status is '{}'",
+                    offer.status
+                )));
+            }
+
+            // Lock order: supplier authority first
+            let mut lock = LockOrder::default();
+            lock.acquire(Authority::Supplier, &offer.supplier_id.to_string())?;
+
+            // Fetch and lock supplier
+            let supplier_row: Option<(Uuid, String)> = sqlx::query_as(
+                "SELECT owner_id, standing FROM suasobra.suppliers WHERE id=$1 FOR UPDATE",
+            )
+            .bind(offer.supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            let (owner_id, standing) = supplier_row.ok_or_else(AppError::missing)?;
+
+            // Outsider check: only owner or moderator has authority (INV-018)
+            if owner_id != actor.id && !actor.moderator() {
+                return Err(AppError::forbidden());
+            }
+
+            // Standing check: only active or warned suppliers are eligible (INV-018)
+            if standing != "active" && standing != "warned" {
+                return Err(AppError::validation(format!(
+                    "Supplier standing '{}' is not eligible to publish offers",
+                    standing
+                )));
+            }
+
+            // Validate establishment is active and belongs to supplier
+            let est_active: Option<bool> = sqlx::query_scalar(
+                "SELECT is_active FROM suasobra.establishments WHERE id=$1 AND supplier_id=$2 FOR UPDATE",
+            )
+            .bind(offer.establishment_id)
+            .bind(offer.supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            if est_active != Some(true) {
+                return Err(AppError::validation(
+                    "Establishment does not exist, does not belong to supplier, or is inactive",
+                ));
+            }
+
+            // Validate pickup point is active and belongs to establishment
+            let point_active: Option<bool> = sqlx::query_scalar(
+                "SELECT is_active FROM suasobra.pickup_points WHERE id=$1 AND establishment_id=$2 FOR UPDATE",
+            )
+            .bind(offer.pickup_point_id)
+            .bind(offer.establishment_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            if point_active != Some(true) {
+                return Err(AppError::validation(
+                    "Pickup point does not exist, does not belong to establishment, or is inactive",
+                ));
+            }
+
+            // Quantity check
+            if offer.admitted_quantity == 0 || offer.available_quantity == 0 {
+                return Err(AppError::validation(
+                    "Offer has no available quantity to publish",
+                ));
+            }
+
+            // Surplus reason check (INV-016)
+            if offer.surplus_reason.trim().len() < 5 {
+                return Err(AppError::validation(
+                    "A substantiated surplus classification is required to publish an offer",
+                ));
+            }
+
+            let now = Utc::now();
+            let intervals = input.validate_intervals(now)?;
+            let booking_starts_at = intervals.booking_starts_at;
+            let booking_ends_at = intervals.booking_ends_at;
+            let pickup_starts_at = intervals.pickup_starts_at;
+            let pickup_ends_at = intervals.pickup_ends_at;
+
+            // Food safety and hard limit checks (INV-063, INV-017, INV-028)
+            if offer.category == "food" {
+                if !FOOD_CONDITIONS.contains(&offer.condition.as_str()) {
+                    return Err(AppError::validation(format!(
+                        "Food condition '{}' is invalid; unsafe or spoiled goods cannot be offered",
+                        offer.condition
+                    )));
+                }
+
+                let disclosures: SafetyDisclosures =
+                    serde_json::from_value(offer.safety_disclosures.clone()).unwrap_or_default();
+                let expiry = disclosures.expiry_or_best_before.ok_or_else(|| {
+                    AppError::validation("Food disclosures must include expiry_or_best_before")
+                })?;
+
+                if expiry <= now {
+                    return Err(AppError::validation(
+                        "Expired food cannot be published: expiry_or_best_before must be in the future",
+                    ));
+                }
+
+                if booking_ends_at > expiry {
+                    return Err(AppError::validation(
+                        "Booking deadline cannot exceed food expiry or best-before date",
+                    ));
+                }
+
+                if pickup_ends_at > expiry {
+                    return Err(AppError::validation(
+                        "Pickup window end cannot exceed food expiry or best-before date",
+                    ));
+                }
+            }
+
+            let price_cents = input
+                .price_cents
+                .map(|p| p as i64)
+                .unwrap_or(offer.price_cents);
+            let payment_mode = if price_cents == 0 {
+                "free"
+            } else {
+                "at_pickup"
+            };
+
+            let new_status = if booking_starts_at <= now {
+                "published"
+            } else {
+                "scheduled"
+            };
+
+            sqlx::query(
+                r#"
+                UPDATE suasobra.offers
+                SET status = $2,
+                    booking_starts_at = $3,
+                    booking_ends_at = $4,
+                    pickup_starts_at = $5,
+                    pickup_ends_at = $6,
+                    price_cents = $7,
+                    payment_mode = $8,
+                    updated_at = now()
+                WHERE id = $1
+                "#,
+            )
+            .bind(offer.id)
+            .bind(new_status)
+            .bind(booking_starts_at)
+            .bind(booking_ends_at)
+            .bind(pickup_starts_at)
+            .bind(pickup_ends_at)
+            .bind(price_cents)
+            .bind(payment_mode)
+            .execute(&mut *tx)
+            .await?;
+
+            let offer_val: Value =
+                sqlx::query_scalar("SELECT to_jsonb(o) FROM suasobra.offers o WHERE id=$1")
+                    .bind(offer.id)
+                    .fetch_one(&mut *tx)
+                    .await?;
+
+            let prior_val: Value = serde_json::to_value(&offer).unwrap_or(json!({}));
+
+            let mut fact = AuditFact {
+                entity_type: "offer".into(),
+                entity_id: offer.id.to_string(),
+                action: if new_status == "scheduled" {
+                    "offer_scheduled".into()
+                } else {
+                    "offer_published".into()
+                },
+                actor_id: Some(actor.id),
+                actor_scope: if actor.moderator() {
+                    "moderator"
+                } else {
+                    "supplier_owner"
+                }
+                .into(),
+                authority_or_policy: "2026.2-free-launch".into(),
+                evidence_kind: "supplier_declaration".into(),
+                reason: format!("Publish surplus offer: {}", offer.title),
+                prior_state: prior_val,
+                resulting_state: offer_val.clone(),
+                prior_quantity: Some(offer.admitted_quantity),
+                resulting_quantity: Some(offer.admitted_quantity),
+                quantity_delta: Some(0),
+                ..Default::default()
+            };
+            fact.record(&mut tx, None).await?;
+
+            replay.finish(&mut tx, 200, &offer_val).await?;
+            (StatusCode::OK, offer_val)
         }
     };
 
