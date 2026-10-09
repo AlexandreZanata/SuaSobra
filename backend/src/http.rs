@@ -584,6 +584,52 @@ async fn dispatch(
         .await?;
         return Ok((code.as_u16(), result, vec![]));
     }
+    if segments.len() == 6
+        && segments[..3] == ["api", "v1", "reservations"]
+        && segments[4] == "attendance"
+        && method == Method::POST
+    {
+        let id = uuid(segments[3])?;
+        let viewer = identity::user(state, session).await?;
+        let key = headers
+            .get("idempotency-key")
+            .map(|v| {
+                v.to_str()
+                    .map_err(|_| AppError::validation("Invalid Idempotency-Key"))
+            })
+            .transpose()?;
+        let command = match segments[5] {
+            "report" => {
+                let mut input: fulfillment::ReportNoShowInput = serde_json::from_value(input)
+                    .map_err(|e| {
+                        AppError::validation(format!("Invalid no-show report payload: {e}"))
+                    })?;
+                if input.reservation_id.is_none() {
+                    input.reservation_id = Some(id);
+                }
+                fulfillment::Command::ReportNoShow(input)
+            }
+            "challenge" => {
+                let mut input: fulfillment::ChallengeNoShowInput = serde_json::from_value(input)
+                    .map_err(|e| AppError::validation(format!("Invalid challenge payload: {e}")))?;
+                if input.reservation_id.is_none() {
+                    input.reservation_id = Some(id);
+                }
+                fulfillment::Command::ChallengeNoShow(input)
+            }
+            "resolve" => {
+                let mut input: fulfillment::ResolveAttendanceInput = serde_json::from_value(input)
+                    .map_err(|e| AppError::validation(format!("Invalid resolve payload: {e}")))?;
+                if input.reservation_id.is_none() {
+                    input.reservation_id = Some(id);
+                }
+                fulfillment::Command::ResolveAttendance(input)
+            }
+            _ => return Err(AppError::missing()),
+        };
+        let (code, result) = fulfillment::execute(state, &viewer, key, command).await?;
+        return Ok((code.as_u16(), result, vec![]));
+    }
     if path.starts_with("/api/v1/auth/") || ["/api/v1/health/", "/api/v1/schema/"].contains(&path) {
         return Err(AppError::new(
             StatusCode::METHOD_NOT_ALLOWED,

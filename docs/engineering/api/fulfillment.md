@@ -67,3 +67,23 @@ P04-02 adds the handover command that consumes them, exposed at
   value and no refund is processed. After a partial handover the reservation
   is terminal: duplicates, replays with fresh keys, and late full handovers
   all fail without reviving handed-over inventory.
+
+## Failed attendance (P04-04, INV-060/INV-061/INV-062)
+
+- `Command::ReportNoShow` records supplier evidence that an `expired`
+  reservation saw no handover: owner (or moderator) only, with a factual
+  readiness statement. The declaration opens an exact 24-hour challenge
+  window (`challenge_until`), applies no penalty, moves no quantity, and
+  changes no status. Live, picked-up, handed-over, and already-declared
+  reservations are refused. Exposed at
+  `POST /v1/reservations/:id/attendance/report` with `{ "statement" }`.
+- `Command::ChallengeNoShow` lets the holder contest within the window, in
+  any account standing — restricted or closed participants retain case
+  access. Outsiders, late challenges, and second challenges are refused.
+  Exposed at `POST /v1/reservations/:id/attendance/challenge`.
+- `Command::ResolveAttendance` is a moderator determination
+  (`no_show`/`supplier_failure`/`neutral` with rationale). A `no_show`
+  outcome requires the window to have elapsed; exoneration may resolve
+  earlier. Appeals supersede only as linked `correction_of` resolutions with
+  full history and no repeated quantity, money, or penalty effect. Exposed at
+  `POST /v1/reservations/:id/attendance/resolve`.

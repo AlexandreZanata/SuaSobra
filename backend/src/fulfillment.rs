@@ -54,11 +54,40 @@ pub struct CompletePartialPickupInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReportNoShowInput {
+    #[serde(default)]
+    pub reservation_id: Option<Uuid>,
+    pub statement: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChallengeNoShowInput {
+    #[serde(default)]
+    pub reservation_id: Option<Uuid>,
+    pub statement: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResolveAttendanceInput {
+    #[serde(default)]
+    pub reservation_id: Option<Uuid>,
+    /// `no_show`, `supplier_failure`, or `neutral`.
+    pub outcome: String,
+    pub rationale: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum Command {
     IssuePickupProof(IssuePickupProofInput),
     CompletePickup(CompletePickupInput),
     CompletePartialPickup(CompletePartialPickupInput),
+    ReportNoShow(ReportNoShowInput),
+    ChallengeNoShow(ChallengeNoShowInput),
+    ResolveAttendance(ResolveAttendanceInput),
 }
 
 /// Minimal handover data revealed by a valid proof: who to expect, how much,
@@ -94,6 +123,15 @@ pub async fn execute(
     }
     if let Command::CompletePartialPickup(input) = command {
         return execute_partial_pickup(state, actor, idempotency_key, input).await;
+    }
+    if let Command::ReportNoShow(input) = command {
+        return execute_report_noshow(state, actor, idempotency_key, input).await;
+    }
+    if let Command::ChallengeNoShow(input) = command {
+        return execute_challenge_noshow(state, actor, idempotency_key, input).await;
+    }
+    if let Command::ResolveAttendance(input) = command {
+        return execute_resolve_attendance(state, actor, idempotency_key, input).await;
     }
     let Command::IssuePickupProof(input) = command else {
         return Err(AppError::internal());
@@ -746,4 +784,441 @@ async fn execute_partial_pickup(
     replay.finish(&mut tx, 200, &resulting_val).await?;
     tx.commit().await?;
     Ok((StatusCode::OK, resulting_val))
+}
+
+/// Challenge window for a provisional no-show outcome: exactly 24 hours from
+/// the supplier declaration (01-executive-summary, UC-011). No penalty exists
+/// in launch, so the window only orders evidence: a `no_show` resolution
+/// requires the window to have elapsed, while exonerating outcomes may
+/// resolve earlier.
+const NOSHOW_CHALLENGE_WINDOW: chrono::Duration = chrono::Duration::hours(24);
+
+/// Declaration of a failed pickup, recorded by the supplier owner (or a
+/// moderator) once the pickup deadline has passed with no handover.
+///
+/// A declaration is supplier evidence, not a resolved fact: it opens the
+/// 24-hour challenge window and applies no penalty, moves no quantity, and
+/// changes no status (INV-060, INV-061). Only `expired` reservations without
+/// any recorded handover qualify; confirmed, picked_up, and cancelled
+/// reservations are refused, as is a second declaration for the same
+/// reservation.
+async fn execute_report_noshow(
+    state: &AppState,
+    actor: &User,
+    idempotency_key: Option<&str>,
+    input: ReportNoShowInput,
+) -> Result<(StatusCode, Value)> {
+    let reservation_id = input
+        .reservation_id
+        .ok_or_else(|| AppError::validation("reservation_id is required to report a no-show"))?;
+    if input.statement.trim().is_empty() {
+        return Err(AppError::validation(
+            "A factual statement of supplier readiness is required",
+        ));
+    }
+
+    let mut tx = state.pool.begin().await?;
+    let actor = identity::lock_actor(&mut tx, actor.id).await?;
+
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
+    let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
+    let (replay, cached) = Replay::begin(
+        &mut tx,
+        actor.id,
+        "report_no_show",
+        idempotency_key,
+        &command_json,
+    )
+    .await?;
+    if let Some((code, payload)) = cached {
+        return Ok((
+            StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+            payload,
+        ));
+    }
+
+    let linkage: Option<(Uuid, Uuid, Uuid)> = sqlx::query_as(
+        "SELECT offer_id, supplier_id, consumer_id FROM suasobra.reservations WHERE id=$1",
+    )
+    .bind(reservation_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let (_offer_id, supplier_id, _consumer_id) = linkage.ok_or_else(AppError::missing)?;
+
+    lock.acquire(Authority::Supplier, &supplier_id.to_string())?;
+    let owner_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT owner_id FROM suasobra.suppliers WHERE id=$1 FOR UPDATE")
+            .bind(supplier_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let owner_id = owner_id.ok_or_else(AppError::missing)?;
+    if actor.id != owner_id && !actor.moderator() {
+        return Err(AppError::forbidden());
+    }
+
+    lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
+    let status: Option<String> =
+        sqlx::query_scalar("SELECT status FROM suasobra.reservations WHERE id=$1 FOR UPDATE")
+            .bind(reservation_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let status = status.ok_or_else(AppError::missing)?;
+    if status != "expired" {
+        return Err(AppError::conflict(format!(
+            "Failed attendance can only be declared for expired reservations past their pickup deadline; current status is '{status}'"
+        )));
+    }
+
+    // No handover ever happened under this reservation: a completed pickup
+    // cannot become a no-show (UC-011).
+    let handover: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action IN ('pickup_completed','partial_pickup_completed') LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+    if handover.is_some() {
+        return Err(AppError::conflict(
+            "A recorded handover exists; open a complaint instead of declaring a no-show",
+        ));
+    }
+    let prior: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action='no_show_declared' LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+    if prior.is_some() {
+        return Err(AppError::conflict(
+            "Failed attendance was already declared for this reservation",
+        ));
+    }
+
+    let policy: Option<String> =
+        sqlx::query_scalar("SELECT accepted_policy_version FROM suasobra.reservations WHERE id=$1")
+            .bind(reservation_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let policy = policy.ok_or_else(AppError::missing)?;
+    let challenge_until = Utc::now() + NOSHOW_CHALLENGE_WINDOW;
+
+    let mut fact = AuditFact {
+        entity_type: "reservation".into(),
+        entity_id: reservation_id.to_string(),
+        action: "no_show_declared".into(),
+        actor_id: Some(actor.id),
+        actor_scope: if actor.id == owner_id {
+            "supplier_owner"
+        } else {
+            "moderator"
+        }
+        .into(),
+        authority_or_policy: policy,
+        evidence_kind: "supplier_declaration".into(),
+        reason: format!(
+            "Supplier declares the collector did not attend the pickup window: {}",
+            input.statement.trim()
+        ),
+        payload: json!({
+            "statement": input.statement.trim(),
+            "challenge_until": challenge_until,
+        }),
+        idempotency_key: Some(format!("noshow-declaration:{reservation_id}")),
+        ..Default::default()
+    };
+    let declaration_id = fact.record(&mut tx, None).await?;
+
+    let response = json!({
+        "reservation_id": reservation_id,
+        "status": status,
+        "declaration_id": declaration_id,
+        "challenge_until": challenge_until,
+    });
+    replay.finish(&mut tx, 200, &response).await?;
+    tx.commit().await?;
+    Ok((StatusCode::OK, response))
+}
+
+/// Holder challenge of a provisional no-show within the 24-hour window.
+///
+/// Only the reservation holder may challenge, in any account standing:
+/// restricted or closed participants retain case access (INV-062). Outsiders
+/// are denied, late challenges past the deadline are refused, and one
+/// challenge exhausts the right (INV-061). A challenge records evidence only;
+/// it reverses nothing by itself.
+async fn execute_challenge_noshow(
+    state: &AppState,
+    actor: &User,
+    idempotency_key: Option<&str>,
+    input: ChallengeNoShowInput,
+) -> Result<(StatusCode, Value)> {
+    let reservation_id = input
+        .reservation_id
+        .ok_or_else(|| AppError::validation("reservation_id is required to challenge a no-show"))?;
+    if input.statement.trim().is_empty() {
+        return Err(AppError::validation(
+            "A factual challenge statement is required",
+        ));
+    }
+
+    let mut tx = state.pool.begin().await?;
+    let actor = identity::lock_actor(&mut tx, actor.id).await?;
+
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
+    let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
+    let (replay, cached) = Replay::begin(
+        &mut tx,
+        actor.id,
+        "challenge_no_show",
+        idempotency_key,
+        &command_json,
+    )
+    .await?;
+    if let Some((code, payload)) = cached {
+        return Ok((
+            StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+            payload,
+        ));
+    }
+
+    lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
+    let linkage: Option<(Uuid, String)> =
+        sqlx::query_as("SELECT consumer_id, accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE")
+            .bind(reservation_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let (consumer_id, policy) = linkage.ok_or_else(AppError::missing)?;
+    if actor.id != consumer_id {
+        return Err(AppError::forbidden());
+    }
+
+    let declaration: Option<(Uuid, Value)> = sqlx::query_as(
+        "SELECT id, payload FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action='no_show_declared' LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+    let (declaration_id, payload) = declaration.ok_or_else(|| {
+        AppError::conflict("No failed-attendance declaration exists for this reservation")
+    })?;
+    let challenge_until: DateTime<Utc> = payload
+        .get("challenge_until")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or_else(AppError::internal)?;
+    if Utc::now() >= challenge_until {
+        return Err(AppError::conflict(
+            "The 24-hour challenge window has elapsed",
+        ));
+    }
+    let prior: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action='no_show_challenged' LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+    if prior.is_some() {
+        return Err(AppError::conflict(
+            "This declaration has already been challenged",
+        ));
+    }
+
+    let mut fact = AuditFact {
+        entity_type: "reservation".into(),
+        entity_id: reservation_id.to_string(),
+        action: "no_show_challenged".into(),
+        actor_id: Some(actor.id),
+        actor_scope: "holder".into(),
+        authority_or_policy: policy,
+        evidence_kind: "holder_statement".into(),
+        reason: format!(
+            "Collector challenges the failed-attendance declaration: {}",
+            input.statement.trim()
+        ),
+        payload: json!({
+            "statement": input.statement.trim(),
+            "declaration_id": declaration_id,
+            "challenge_until": challenge_until,
+        }),
+        idempotency_key: Some(format!("noshow-challenge:{reservation_id}")),
+        ..Default::default()
+    };
+    let challenge_id = fact.record(&mut tx, None).await?;
+
+    let response = json!({
+        "reservation_id": reservation_id,
+        "challenge_id": challenge_id,
+        "declaration_id": declaration_id,
+        "challenge_until": challenge_until,
+    });
+    replay.finish(&mut tx, 200, &response).await?;
+    tx.commit().await?;
+    Ok((StatusCode::OK, response))
+}
+
+/// Moderator resolution of a declared failed attendance.
+///
+/// The declaration alone punishes nobody; only this determination sets the
+/// outcome, and a `no_show` outcome additionally requires the 24-hour
+/// challenge window to have elapsed so the consumer had the full opportunity
+/// to be heard. Exonerating outcomes (`supplier_failure`, `neutral`) may
+/// resolve earlier on the evidence. A later appeal changes the outcome only
+/// through an authorized correction linked to the prior resolution, with all
+/// history preserved and no repeated quantity, money, or penalty effect
+/// (INV-060, INV-061, INV-062).
+async fn execute_resolve_attendance(
+    state: &AppState,
+    actor: &User,
+    idempotency_key: Option<&str>,
+    input: ResolveAttendanceInput,
+) -> Result<(StatusCode, Value)> {
+    let reservation_id = input
+        .reservation_id
+        .ok_or_else(|| AppError::validation("reservation_id is required to resolve attendance"))?;
+    if !["no_show", "supplier_failure", "neutral"].contains(&input.outcome.as_str()) {
+        return Err(AppError::validation(
+            "outcome must be 'no_show', 'supplier_failure', or 'neutral'",
+        ));
+    }
+    if input.rationale.trim().is_empty() {
+        return Err(AppError::validation(
+            "A rationale with the supporting evidence is required",
+        ));
+    }
+
+    let mut tx = state.pool.begin().await?;
+    let actor = identity::lock_actor(&mut tx, actor.id).await?;
+
+    let mut lock = LockOrder::default();
+    lock.acquire(Authority::Consumer, &actor.id.to_string())?;
+
+    let command_json = serde_json::to_value(&input).map_err(|_| AppError::internal())?;
+    let (replay, cached) = Replay::begin(
+        &mut tx,
+        actor.id,
+        "resolve_attendance",
+        idempotency_key,
+        &command_json,
+    )
+    .await?;
+    if let Some((code, payload)) = cached {
+        return Ok((
+            StatusCode::from_u16(code).unwrap_or(StatusCode::OK),
+            payload,
+        ));
+    }
+
+    if !actor.moderator() {
+        return Err(AppError::forbidden());
+    }
+
+    lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
+    let policy: Option<String> = sqlx::query_scalar(
+        "SELECT accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+    )
+    .bind(reservation_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let policy = policy.ok_or_else(AppError::missing)?;
+
+    let declaration: Option<(Uuid, Value)> = sqlx::query_as(
+        "SELECT id, payload FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action='no_show_declared' LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+    let (declaration_id, payload) = declaration.ok_or_else(|| {
+        AppError::conflict("No failed-attendance declaration exists for this reservation")
+    })?;
+    let challenge_until: DateTime<Utc> = payload
+        .get("challenge_until")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or_else(AppError::internal)?;
+    if input.outcome == "no_show" && Utc::now() < challenge_until {
+        return Err(AppError::conflict(
+            "A no-show outcome requires the 24-hour challenge window to elapse first",
+        ));
+    }
+    let challenged: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action='no_show_challenged' LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    // An appeal supersedes a prior resolution only as a linked correction;
+    // repeating the same outcome changes nothing. Corrections chain, so the
+    // latest resolution of any generation governs.
+    let latest_resolution: Option<(Uuid, Value)> = sqlx::query_as(
+        "SELECT id, payload FROM suasobra.audit_facts WHERE entity_type='reservation' AND entity_id=$1 AND action='attendance_resolved' ORDER BY recognized_at DESC, id DESC LIMIT 1",
+    )
+    .bind(reservation_id.to_string())
+    .fetch_optional(&mut *tx)
+    .await?;
+    let mut correction_of: Option<Uuid> = None;
+    if let Some((latest_id, latest_payload)) = latest_resolution {
+        let latest_outcome = latest_payload
+            .get("outcome")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if latest_outcome == input.outcome {
+            return Err(AppError::conflict(
+                "This attendance outcome is already resolved",
+            ));
+        }
+        correction_of = Some(latest_id);
+    }
+
+    let mut fact = AuditFact {
+        entity_type: "reservation".into(),
+        entity_id: reservation_id.to_string(),
+        action: "attendance_resolved".into(),
+        actor_id: Some(actor.id),
+        actor_scope: "moderator".into(),
+        authority_or_policy: policy,
+        evidence_kind: "moderator_determination".into(),
+        reason: format!(
+            "Attendance {} as '{}': {}",
+            if correction_of.is_some() {
+                "corrected"
+            } else {
+                "resolved"
+            },
+            input.outcome,
+            input.rationale.trim()
+        ),
+        payload: json!({
+            "outcome": input.outcome,
+            "rationale": input.rationale.trim(),
+            "declaration_id": declaration_id,
+            "challenged": challenged.is_some(),
+            "challenge_until": challenge_until,
+        }),
+        correction_of,
+        idempotency_key: Some(format!(
+            "noshow-resolution:{}:{}",
+            reservation_id,
+            if correction_of.is_some() {
+                format!("appeal-{}", Utc::now().timestamp_millis())
+            } else {
+                input.outcome.clone()
+            }
+        )),
+        ..Default::default()
+    };
+    let resolution_id = fact.record(&mut tx, None).await?;
+
+    let response = json!({
+        "reservation_id": reservation_id,
+        "resolution_id": resolution_id,
+        "outcome": input.outcome,
+        "challenged": challenged.is_some(),
+        "corrects": correction_of,
+    });
+    replay.finish(&mut tx, 200, &response).await?;
+    tx.commit().await?;
+    Ok((StatusCode::OK, response))
 }

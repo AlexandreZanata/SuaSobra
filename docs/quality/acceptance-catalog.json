@@ -864,7 +864,13 @@
       "status": "implemented",
       "tests": [
         "backend/tests/integration.rs::audit_outbox_corrections_redaction_and_database_immutability",
-        "backend/tests/integration.rs::failed_history_insert_rolls_back_point_audit_and_replay"
+        "backend/tests/integration.rs::failed_history_insert_rolls_back_point_audit_and_replay",
+        "backend/tests/p04_04.rs::owner_declares_failed_attendance_with_exact_deadline",
+        "backend/tests/p04_04.rs::declaration_refuses_live_picked_handed_and_duplicate",
+        "backend/tests/p04_04.rs::suspended_holder_keeps_challenge_access_outsiders_denied",
+        "backend/tests/p04_04.rs::late_challenge_refused_no_show_resolves_after_window",
+        "backend/tests/p04_04.rs::early_no_show_refused_exoneration_may_resolve_and_appeal_corrects",
+        "backend/tests/p04_04.rs::http_attendance_routes_serve_roles_and_replay_sealed"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,
@@ -909,7 +915,13 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies"
+        "backend/tests/unit.rs::ownership_and_restrictions_do_not_erase_participant_remedies",
+        "backend/tests/p04_04.rs::owner_declares_failed_attendance_with_exact_deadline",
+        "backend/tests/p04_04.rs::declaration_refuses_live_picked_handed_and_duplicate",
+        "backend/tests/p04_04.rs::suspended_holder_keeps_challenge_access_outsiders_denied",
+        "backend/tests/p04_04.rs::late_challenge_refused_no_show_resolves_after_window",
+        "backend/tests/p04_04.rs::early_no_show_refused_exoneration_may_resolve_and_appeal_corrects",
+        "backend/tests/p04_04.rs::http_attendance_routes_serve_roles_and_replay_sealed"
       ],
       "evidence_kind": "partial_foundation_or_supplier_coverage",
       "verification": null,
