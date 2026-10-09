@@ -92,6 +92,25 @@ Every reservation copies the accepted terms at acceptance time:
   handed-over goods never return automatically. Launch pays no refund:
   cancellation releases units only, never money.
 
+## Exclusive deadlines and repeatable expiry (P03-05, INV-007, INV-008)
+
+- Every acceptance command checks its deadline synchronously against the
+  authoritative terms: `ReserveNow` requires an open booking window and a
+  live pickup interval; `CancelReservation` additionally refuses once the
+  accepted pickup window has ended — the reservation is then due for expiry,
+  not cancellation, even if the maintenance timer has not run yet.
+- The repeatable `expire-due` executable command (runnable from a host
+  timer; no worker or broker) expires, in one atomic transaction, every
+  `confirmed` reservation whose accepted pickup window ended and every
+  `published`/`scheduled` offer whose pickup window ended. Remaining
+  available or committed units move to `disposed` exactly once — past-pickup
+  goods are never re-sold — with a system `offer_expired` or
+  `reservation_expired` audit fact each. Expired reservations cannot be
+  cancelled and expired offers accept no new reservation.
+- Repeatability is the replay guarantee: a second run finds nothing due and
+  changes nothing; a failed batch rolls back entirely so conserved quantities
+  and accepted history survive a crash intact.
+
 ## Audit and replay (INV-060, INV-061)
 
 Each confirmation records a `reservation_confirmed` audit fact with the prior

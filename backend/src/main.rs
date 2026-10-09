@@ -1,4 +1,4 @@
-use suasobra_backend::{AppState, config::Config, http, legacy};
+use suasobra_backend::{AppState, config::Config, http, legacy, reservations};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenvy::dotenv();
@@ -42,7 +42,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_graceful_shutdown(shutdown())
             .await?;
         }
-        _ => return Err("Usage: suasobra-backend [serve|migrate|import-django|prune-auth]".into()),
+        "expire-due" => {
+            let report = reservations::expire_due(&state.pool, chrono::Utc::now()).await?;
+            println!(
+                "Expiry pass complete: {} reservation(s) and {} offer(s) expired, {} unit(s) disposed.",
+                report.expired_reservations, report.expired_offers, report.units_disposed
+            );
+        }
+        _ => {
+            return Err(
+                "Usage: suasobra-backend [serve|migrate|import-django|prune-auth|expire-due]"
+                    .into(),
+            );
+        }
     }
     Ok(())
 }

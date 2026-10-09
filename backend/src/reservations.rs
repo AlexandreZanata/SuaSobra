@@ -569,19 +569,29 @@ async fn execute_cancel(
     let offer = offer.ok_or_else(AppError::missing)?;
 
     lock.acquire(Authority::Reservation, &reservation_id.to_string())?;
-    let reservation_row: Option<(String, i64, String)> = sqlx::query_as(
-        "SELECT status, quantity, accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+    let reservation_row: Option<(String, i64, String, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT status, quantity, accepted_policy_version, accepted_pickup_ends_at FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
     )
     .bind(reservation_id)
     .fetch_optional(&mut *tx)
     .await?;
-    let (status, quantity, policy_version) = reservation_row.ok_or_else(AppError::missing)?;
+    let (status, quantity, policy_version, accepted_pickup_ends_at) =
+        reservation_row.ok_or_else(AppError::missing)?;
 
     // Terminal protection (INV-007): exactly one release per quantity.
     if status != "confirmed" {
         return Err(AppError::conflict(format!(
             "Only confirmed reservations can be cancelled; current status is '{status}'"
         )));
+    }
+
+    // Exclusive pickup deadline (P03-05): once the accepted pickup window has
+    // ended the reservation is due for expiry, not cancellation — even if the
+    // maintenance timer has not run yet.
+    if Utc::now() >= accepted_pickup_ends_at {
+        return Err(AppError::conflict(
+            "The pickup window has ended; the reservation is due for expiry and can no longer be cancelled",
+        ));
     }
 
     let new_available = offer
@@ -644,4 +654,135 @@ async fn execute_cancel(
     replay.finish(&mut tx, 200, &resulting_val).await?;
     tx.commit().await?;
     Ok((StatusCode::OK, resulting_val))
+}
+
+/// Outcome of one repeatable expiry run, for timer logs and tests.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ExpiryReport {
+    pub expired_reservations: u64,
+    pub expired_offers: u64,
+    pub units_disposed: u64,
+}
+
+/// Expire due reservations and offers in one atomic transaction.
+///
+/// A host timer may invoke this through the `expire-due` executable command;
+/// no worker or broker exists. Anything with an ended pickup window
+/// (`accepted_pickup_ends_at <= now` for reservations, `pickup_ends_at <= now`
+/// for published/scheduled offers) transitions to `expired` with its exact
+/// remaining units moved to `disposed` (INV-007): past-pickup goods are never
+/// re-sold, and expiry never moves more than the accepted quantity (INV-008).
+/// Each transition records an audit fact. The run is repeatable: a second run
+/// finds nothing due and changes nothing; a crash rolls the whole batch back
+/// so conserved quantities and accepted history survive intact.
+pub async fn expire_due(pool: &PgPool, now: DateTime<Utc>) -> Result<ExpiryReport> {
+    let mut tx = pool.begin().await?;
+    let mut report = ExpiryReport {
+        expired_reservations: 0,
+        expired_offers: 0,
+        units_disposed: 0,
+    };
+
+    // Offers before reservations (authority order), each set in deterministic
+    // ID order so concurrent runs cannot deadlock.
+    let due_offers: Vec<(Uuid, i64, String)> = sqlx::query_as(
+        "SELECT id, available_quantity, policy_version FROM suasobra.offers WHERE status IN ('published','scheduled') AND pickup_ends_at IS NOT NULL AND pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
+    )
+    .bind(now)
+    .fetch_all(&mut *tx)
+    .await?;
+    for (offer_id, available, policy_version) in due_offers {
+        let new_available = 0;
+        let disposed_add = available;
+        sqlx::query(
+            "UPDATE suasobra.offers SET status='expired', available_quantity=$2, disposed_quantity=disposed_quantity+$3, updated_at=now() WHERE id=$1",
+        )
+        .bind(offer_id)
+        .bind(new_available)
+        .bind(disposed_add)
+        .execute(&mut *tx)
+        .await?;
+        let offer_val: Value =
+            sqlx::query_scalar("SELECT to_jsonb(o) FROM suasobra.offers o WHERE id=$1")
+                .bind(offer_id)
+                .fetch_one(&mut *tx)
+                .await?;
+        let mut fact = AuditFact {
+            entity_type: "offer".into(),
+            entity_id: offer_id.to_string(),
+            action: "offer_expired".into(),
+            actor_id: None,
+            actor_scope: "system".into(),
+            authority_or_policy: policy_version,
+            evidence_kind: "system_maintenance".into(),
+            reason: "Pickup window ended without sale; remaining available units disposed".into(),
+            prior_state: json!({}),
+            resulting_state: offer_val,
+            prior_quantity: Some(available),
+            resulting_quantity: Some(new_available),
+            quantity_delta: Some(-disposed_add),
+            ..Default::default()
+        };
+        fact.record(&mut tx, None).await?;
+        report.expired_offers += 1;
+        report.units_disposed += disposed_add as u64;
+    }
+
+    let due_reservations: Vec<(Uuid, Uuid, i64, String)> = sqlx::query_as(
+        "SELECT id, offer_id, quantity, accepted_policy_version FROM suasobra.reservations WHERE status='confirmed' AND accepted_pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
+    )
+    .bind(now)
+    .fetch_all(&mut *tx)
+    .await?;
+    for (reservation_id, offer_id, quantity, policy_version) in due_reservations {
+        let committed: Option<i64> = sqlx::query_scalar(
+            "SELECT committed_quantity FROM suasobra.offers WHERE id=$1 FOR UPDATE",
+        )
+        .bind(offer_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let committed = committed.ok_or_else(AppError::missing)?;
+        let new_committed = committed
+            .checked_sub(quantity)
+            .ok_or_else(AppError::internal)?;
+        sqlx::query(
+            "UPDATE suasobra.offers SET committed_quantity=$2, disposed_quantity=disposed_quantity+$3, updated_at=now() WHERE id=$1",
+        )
+        .bind(offer_id)
+        .bind(new_committed)
+        .bind(quantity)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE suasobra.reservations SET status='expired' WHERE id=$1")
+            .bind(reservation_id)
+            .execute(&mut *tx)
+            .await?;
+        let resulting_val: Value =
+            sqlx::query_scalar("SELECT to_jsonb(r) FROM suasobra.reservations r WHERE id=$1")
+                .bind(reservation_id)
+                .fetch_one(&mut *tx)
+                .await?;
+        let mut fact = AuditFact {
+            entity_type: "reservation".into(),
+            entity_id: reservation_id.to_string(),
+            action: "reservation_expired".into(),
+            actor_id: None,
+            actor_scope: "system".into(),
+            authority_or_policy: policy_version,
+            evidence_kind: "system_maintenance".into(),
+            reason: "Pickup window ended without handover; committed units disposed".into(),
+            prior_state: json!({}),
+            resulting_state: resulting_val,
+            prior_quantity: Some(committed),
+            resulting_quantity: Some(new_committed),
+            quantity_delta: Some(-quantity),
+            ..Default::default()
+        };
+        fact.record(&mut tx, None).await?;
+        report.expired_reservations += 1;
+        report.units_disposed += quantity as u64;
+    }
+
+    tx.commit().await?;
+    Ok(report)
 }

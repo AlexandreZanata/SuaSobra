@@ -292,19 +292,29 @@
         "backend/tests/p03_04.rs::duplicate_cancel_and_replay_never_double_release",
         "backend/tests/p03_04.rs::concurrent_cancels_release_exactly_once",
         "backend/tests/p03_04.rs::terminal_and_handed_over_reservations_cannot_cancel",
-        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency"
+        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency",
+        "backend/tests/p03_05.rs::late_reserve_is_rejected_after_booking_deadline",
+        "backend/tests/p03_05.rs::cancel_is_rejected_once_pickup_window_ends",
+        "backend/tests/p03_05.rs::expire_due_transitions_and_disposes_exact_units",
+        "backend/tests/p03_05.rs::expiry_boundary_is_exclusive_and_repeat_runs_are_noops",
+        "backend/tests/p03_05.rs::failed_expiry_batch_rolls_back_entirely"
       ],
       "evidence_kind": "reservation_cancellation_coverage",
       "verification": null,
-      "limitations": "P03-04 proves exact once-only committed-to-available release with terminal protection; expiry automation remains in P03-05."
+      "limitations": "Mapped tests add P03-05 proof of repeatable atomic expiry with exact once-only disposal and full-batch rollback on failure."
     },
     {
       "id": "INV-008",
       "source": "docs/domain/08-invariants.md",
       "status": "planned",
-      "tests": [],
+      "tests": [
+        "backend/tests/p03_05.rs::expire_due_transitions_and_disposes_exact_units",
+        "backend/tests/p03_05.rs::expiry_boundary_is_exclusive_and_repeat_runs_are_noops",
+        "backend/tests/p03_05.rs::failed_expiry_batch_rolls_back_entirely"
+      ],
       "evidence_kind": "pending",
-      "verification": null
+      "verification": null,
+      "limitations": "Mapped tests add P03-05 proof that expiry moves exactly the accepted quantity, never more; the handover flow that completes INV-008 remains in a later phase."
     },
     {
       "id": "INV-009",
