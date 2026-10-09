@@ -4,6 +4,7 @@ pub mod error;
 pub mod http;
 pub mod identity;
 pub mod legacy;
+pub mod marketplace;
 pub mod primitives;
 pub mod replay;
 pub mod suppliers;

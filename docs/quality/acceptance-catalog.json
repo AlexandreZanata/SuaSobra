@@ -177,18 +177,26 @@
     {
       "id": "INV-001",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_01.rs::database_rejects_negative_quantity_buckets",
+        "backend/tests/p02_01.rs::surplus_identity_and_buckets_persist_with_uuidv7"
+      ],
+      "evidence_kind": "surplus_inventory_and_offer_identity_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover database nonnegative bucket enforcement and typed surplus records; subsequent draft/reservation/fulfillment flows remain in their assigned domain tasks."
     },
     {
       "id": "INV-002",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_01.rs::database_rejects_unbalanced_quantity_buckets",
+        "backend/tests/p02_01.rs::surplus_identity_and_buckets_persist_with_uuidv7"
+      ],
+      "evidence_kind": "surplus_inventory_and_offer_identity_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover database whole-unit inventory conservation check; subsequent reservation commitments and handover dispositions remain in their assigned domain tasks."
     },
     {
       "id": "INV-003",
@@ -293,10 +301,15 @@
     {
       "id": "INV-015",
       "source": "docs/domain/08-invariants.md",
-      "status": "planned",
-      "tests": [],
-      "evidence_kind": "pending",
-      "verification": null
+      "status": "implemented",
+      "tests": [
+        "backend/tests/p02_01.rs::database_rejects_invalid_foreign_keys",
+        "backend/tests/p02_01.rs::service_rejects_mismatched_establishment_or_pickup_point",
+        "backend/tests/p02_01.rs::surplus_identity_and_buckets_persist_with_uuidv7"
+      ],
+      "evidence_kind": "surplus_inventory_and_offer_identity_coverage",
+      "verification": null,
+      "limitations": "Mapped tests cover accountable supplier, establishment, point foreign keys and category/unit definition; public offer publication and discovery remain in their assigned domain tasks."
     },
     {
       "id": "INV-016",

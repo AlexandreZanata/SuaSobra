@@ -204,6 +204,12 @@ impl Client {
         assert_eq!(status, 201, "{value}");
         value["id"].as_str().unwrap().parse().unwrap()
     }
+    pub async fn get_user(&self, state: &AppState) -> identity::User {
+        let mut tx = state.pool.begin().await.unwrap();
+        identity::lock_actor(&mut tx, self.user.unwrap())
+            .await
+            .unwrap()
+    }
 }
 pub fn declaration() -> Value {
     json!({"trade_name":"Surplus bakery","tax_id":"test-tax-id","business_type":"bakery","contact_email":"supplier@example.test","contact_phone":"test-phone"})
@@ -224,6 +230,8 @@ pub async fn count(pool: &PgPool, table: &str) -> i64 {
             "command_replays",
             "pickup_point_history",
             "pickup_points",
+            "offers",
+            "establishments",
             "legacy_ids",
             "legacy_records"
         ]
