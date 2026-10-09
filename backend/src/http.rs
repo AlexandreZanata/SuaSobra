@@ -2,7 +2,7 @@ use crate::{
     AppState,
     error::{AppError, Result},
     identity::{self, Session},
-    marketplace, suppliers,
+    marketplace, reservations, suppliers,
 };
 use axum::{
     Extension, Json, Router,
@@ -460,6 +460,40 @@ async fn dispatch(
             StatusCode::METHOD_NOT_ALLOWED,
             "method_not_allowed",
             "Method not allowed.",
+        ));
+    }
+    if segments.len() == 4
+        && segments[..3] == ["api", "v1", "reservations"]
+        && method == Method::GET
+    {
+        let id = uuid(segments[3])?;
+        let viewer = identity::user(state, session).await.ok();
+        let detail = reservations::get_reservation_detail(&state.pool, id, viewer.as_ref()).await?;
+        return Ok((200, detail, vec![]));
+    }
+    if segments.as_slice() == ["api", "v1", "reservations"] && method == Method::GET {
+        let viewer = identity::user(state, session).await?;
+        let rows =
+            reservations::list_consumer_reservations(&state.pool, viewer.id, &viewer).await?;
+        return Ok((
+            200,
+            serde_json::to_value(rows).map_err(|_| AppError::internal())?,
+            vec![],
+        ));
+    }
+    if segments.len() == 5
+        && segments[..3] == ["api", "v1", "suppliers"]
+        && segments[4] == "reservations"
+        && method == Method::GET
+    {
+        let supplier_id = uuid(segments[3])?;
+        let viewer = identity::user(state, session).await?;
+        let rows =
+            reservations::list_supplier_reservations(&state.pool, supplier_id, &viewer).await?;
+        return Ok((
+            200,
+            serde_json::to_value(rows).map_err(|_| AppError::internal())?,
+            vec![],
         ));
     }
     if path.starts_with("/api/v1/auth/") || ["/api/v1/health/", "/api/v1/schema/"].contains(&path) {

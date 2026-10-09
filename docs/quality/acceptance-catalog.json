@@ -421,11 +421,12 @@
         "backend/tests/p02_05.rs::edit_published_offer_preserves_accepted_terms",
         "backend/tests/p02_05.rs::terminal_offers_cannot_be_edited_or_withdrawn_again",
         "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota",
-        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits"
+        "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
+        "backend/tests/p03_03.rs::displayed_terms_stay_stable_after_offer_and_point_edits"
       ],
       "evidence_kind": "offer_correction_and_withdrawal_coverage",
       "verification": null,
-      "limitations": "Mapped tests add P03-01 proof that reservation snapshots join offer term protection; cancellation/pickup lifecycles remain in later P03 tasks."
+      "limitations": "Mapped tests add P03-03 proof that HTTP-displayed accepted price, condition, times and policy stay stable after offer quantity correction and pickup-point relocation."
     },
     {
       "id": "INV-021",
@@ -744,12 +745,15 @@
       "source": "docs/domain/08-invariants.md",
       "status": "implemented",
       "tests": [
-        "backend/tests/integration.rs::pickup_privacy_versions_and_owner_only_history",
-        "backend/tests/p02_04.rs::discovery_and_detail_enforce_location_privacy_and_mask_private_addresses"
+        "backend/tests/p03_03.rs::holder_owner_and_moderator_read_detail_with_exact_location",
+        "backend/tests/p03_03.rs::outsiders_and_anonymous_cannot_read_or_list",
+        "backend/tests/p03_03.rs::displayed_terms_stay_stable_after_offer_and_point_edits",
+        "backend/tests/p03_03.rs::consumer_and_supplier_lists_are_scoped_to_participants",
+        "backend/tests/p03_03.rs::http_reservation_routes_serve_participants_only"
       ],
-      "evidence_kind": "partial_foundation_or_supplier_coverage",
+      "evidence_kind": "reservation_disclosure_coverage",
       "verification": null,
-      "limitations": "Mapped tests cover the generated Rust foundation/supplier behavior; all other active uses of this rule remain pending in their assigned domain tasks."
+      "limitations": "P03-03 proves participant-only reservation reads with exact private location at the confirmed stage and 404 denials for outsiders; later lifecycle stages remain in subsequent P03 tasks."
     },
     {
       "id": "INV-058",

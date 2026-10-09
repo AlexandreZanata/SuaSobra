@@ -58,6 +58,25 @@ Every reservation copies the accepted terms at acceptance time:
 - Later offer or pickup-point edits never touch stored snapshots, so new
   prices or terms never alter old commitments.
 
+## Participant-only reads and staged location disclosure (P03-03, INV-057)
+
+- `GET /api/v1/reservations/{id}/` returns the reservation with its accepted
+  snapshot plus the pickup point and establishment name. Only the consumer
+  holder, the supplier owner or a moderator may read it; outsiders and
+  anonymous callers receive `404`, so a bare UUID grants no access and
+  reservations are not an existence oracle.
+- `GET /api/v1/reservations/` lists the caller's own held reservations;
+  `GET /api/v1/suppliers/{id}/reservations/` lists a supplier's offer
+  reservations for its owner or a moderator. Lists carry snapshot terms but
+  no exact private location.
+- Exact pickup-point location is disclosed only at the permitted stage: the
+  holder sees it while the reservation is `confirmed`; the supplier owner
+  and moderators see it under their existing point/case authority. Any other
+  stage serves the redacted public point.
+- Displayed accepted price, condition, times and policy come from the
+  immutable snapshot columns and stay stable across later offer or point
+  edits.
+
 ## Audit and replay (INV-060, INV-061)
 
 Each confirmation records a `reservation_confirmed` audit fact with the prior

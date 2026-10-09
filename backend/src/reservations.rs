@@ -11,6 +11,7 @@ use axum::http::StatusCode;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 /// A confirmed launch reservation with its immutable accepted-term snapshot.
@@ -342,4 +343,118 @@ pub async fn execute(
     replay.finish(&mut tx, 201, &reservation_val).await?;
     tx.commit().await?;
     Ok((StatusCode::CREATED, reservation_val))
+}
+
+/// Participant-only reservation detail with staged private-point disclosure.
+///
+/// Only the consumer holder, the supplier owner or a moderator may read a
+/// reservation: a bare resource UUID grants no access, and outsiders (or
+/// anonymous callers) receive `404` so reservations are not an existence
+/// oracle (INV-057). The accepted terms come straight from the immutable
+/// snapshot columns, so later offer or point edits never move displayed
+/// price, condition, times or policy (INV-020).
+///
+/// Exact pickup-point location is disclosed only at the permitted stage: the
+/// consumer holder sees it while the reservation is `confirmed`; the
+/// supplier owner (their own point) and moderators (case authority) see it
+/// regardless of status. Any other stage returns the redacted public point.
+pub async fn get_reservation_detail(
+    pool: &PgPool,
+    id: Uuid,
+    viewer: Option<&User>,
+) -> Result<Value> {
+    #[derive(sqlx::FromRow)]
+    struct DetailRow {
+        reservation_val: Value,
+        point_data: Value,
+        supplier_owner_id: Uuid,
+        consumer_id: Uuid,
+        status: String,
+        establishment_name: String,
+    }
+
+    let row: Option<DetailRow> = sqlx::query_as(
+        r#"
+        SELECT to_jsonb(r) AS reservation_val,
+               p.data AS point_data,
+               s.owner_id AS supplier_owner_id,
+               r.consumer_id AS consumer_id,
+               r.status AS status,
+               e.name AS establishment_name
+        FROM suasobra.reservations r
+        JOIN suasobra.suppliers s ON r.supplier_id = s.id
+        JOIN suasobra.pickup_points p ON r.pickup_point_id = p.id
+        JOIN suasobra.establishments e ON r.establishment_id = e.id
+        WHERE r.id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+
+    let row = row.ok_or_else(AppError::missing)?;
+    let viewer = viewer.ok_or_else(AppError::missing)?;
+    let is_holder = viewer.id == row.consumer_id;
+    let is_owner = viewer.id == row.supplier_owner_id;
+    if !is_holder && !is_owner && !viewer.moderator() {
+        return Err(AppError::missing());
+    }
+
+    let mut detail = row.reservation_val;
+    let disclose_exact = (row.status == "confirmed" && is_holder) || is_owner || viewer.moderator();
+    let point = if disclose_exact {
+        row.point_data
+    } else {
+        crate::suppliers::public_point(row.point_data)
+    };
+    if let Some(obj) = detail.as_object_mut() {
+        obj.insert("pickup_point".into(), point);
+        obj.insert(
+            "establishment_name".into(),
+            Value::String(row.establishment_name),
+        );
+    }
+    Ok(detail)
+}
+
+/// Reservations held by one consumer: the consumer themselves or a moderator.
+pub async fn list_consumer_reservations(
+    pool: &PgPool,
+    consumer_id: Uuid,
+    viewer: &User,
+) -> Result<Vec<Value>> {
+    if viewer.id != consumer_id && !viewer.moderator() {
+        return Err(AppError::missing());
+    }
+    sqlx::query_scalar(
+        "SELECT to_jsonb(r) FROM suasobra.reservations r WHERE r.consumer_id=$1 ORDER BY r.created_at DESC, r.id DESC",
+    )
+    .bind(consumer_id)
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
+/// Reservations on one supplier's offers: the supplier owner or a moderator.
+pub async fn list_supplier_reservations(
+    pool: &PgPool,
+    supplier_id: Uuid,
+    viewer: &User,
+) -> Result<Vec<Value>> {
+    let owner_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT owner_id FROM suasobra.suppliers WHERE id=$1")
+            .bind(supplier_id)
+            .fetch_optional(pool)
+            .await?;
+    let owner_id = owner_id.ok_or_else(AppError::missing)?;
+    if viewer.id != owner_id && !viewer.moderator() {
+        return Err(AppError::missing());
+    }
+    sqlx::query_scalar(
+        "SELECT to_jsonb(r) FROM suasobra.reservations r WHERE r.supplier_id=$1 ORDER BY r.created_at DESC, r.id DESC",
+    )
+    .bind(supplier_id)
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
 }
