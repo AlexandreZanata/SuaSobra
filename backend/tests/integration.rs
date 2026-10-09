@@ -17,7 +17,7 @@ async fn migration_schema_has_native_uuidv7_and_reapplies_without_drift() {
         .unwrap();
     assert!(version >= 180006);
     let columns:Vec<(String,String)>=sqlx::query_as("SELECT table_name,column_default FROM information_schema.columns WHERE table_schema='suasobra' AND column_name='id' ORDER BY table_name").fetch_all(&db.state.pool).await.unwrap();
-    assert_eq!(columns.len(), 15);
+    assert_eq!(columns.len(), 16);
     for (table, default) in columns {
         assert_eq!(default, "uuidv7()", "{table}");
     }

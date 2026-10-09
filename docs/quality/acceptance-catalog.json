@@ -208,7 +208,13 @@
         "backend/tests/p03_04.rs::duplicate_cancel_and_replay_never_double_release",
         "backend/tests/p03_04.rs::concurrent_cancels_release_exactly_once",
         "backend/tests/p03_04.rs::terminal_and_handed_over_reservations_cannot_cancel",
-        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency"
+        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency",
+        "backend/tests/p03_06.rs::independent_connections_race_for_last_units",
+        "backend/tests/p03_06.rs::reserve_cancel_race_keeps_everything_in_agreement",
+        "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
+        "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
+        "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
       ],
       "evidence_kind": "reservation_atomicity_and_cap_coverage",
       "verification": null,
@@ -267,7 +273,13 @@
         "backend/tests/p03_01.rs::concurrent_last_unit_reservations_accept_at_most_one",
         "backend/tests/p03_02.rs::two_users_racing_for_final_units_yield_one_success",
         "backend/tests/p03_02.rs::parallel_offers_cannot_bypass_simultaneous_commitment_cap",
-        "backend/tests/p03_02.rs::parallel_free_offers_cannot_bypass_free_reservation_cap"
+        "backend/tests/p03_02.rs::parallel_free_offers_cannot_bypass_free_reservation_cap",
+        "backend/tests/p03_06.rs::independent_connections_race_for_last_units",
+        "backend/tests/p03_06.rs::reserve_cancel_race_keeps_everything_in_agreement",
+        "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
+        "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
+        "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
       ],
       "evidence_kind": "reservation_contention_coverage",
       "verification": null,
@@ -297,7 +309,13 @@
         "backend/tests/p03_05.rs::cancel_is_rejected_once_pickup_window_ends",
         "backend/tests/p03_05.rs::expire_due_transitions_and_disposes_exact_units",
         "backend/tests/p03_05.rs::expiry_boundary_is_exclusive_and_repeat_runs_are_noops",
-        "backend/tests/p03_05.rs::failed_expiry_batch_rolls_back_entirely"
+        "backend/tests/p03_05.rs::failed_expiry_batch_rolls_back_entirely",
+        "backend/tests/p03_06.rs::independent_connections_race_for_last_units",
+        "backend/tests/p03_06.rs::reserve_cancel_race_keeps_everything_in_agreement",
+        "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
+        "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
+        "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
       ],
       "evidence_kind": "reservation_cancellation_coverage",
       "verification": null,
@@ -448,7 +466,13 @@
         "backend/tests/p02_05.rs::terminal_offers_cannot_be_edited_or_withdrawn_again",
         "backend/tests/unit.rs::policy_versions_are_immutable_and_launch_has_no_billing_quota",
         "backend/tests/p03_01.rs::accepted_snapshot_survives_offer_and_point_edits",
-        "backend/tests/p03_03.rs::displayed_terms_stay_stable_after_offer_and_point_edits"
+        "backend/tests/p03_03.rs::displayed_terms_stay_stable_after_offer_and_point_edits",
+        "backend/tests/p03_06.rs::independent_connections_race_for_last_units",
+        "backend/tests/p03_06.rs::reserve_cancel_race_keeps_everything_in_agreement",
+        "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
+        "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
+        "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
       ],
       "evidence_kind": "offer_correction_and_withdrawal_coverage",
       "verification": null,
@@ -825,7 +849,13 @@
         "backend/tests/p03_04.rs::duplicate_cancel_and_replay_never_double_release",
         "backend/tests/p03_04.rs::concurrent_cancels_release_exactly_once",
         "backend/tests/p03_04.rs::terminal_and_handed_over_reservations_cannot_cancel",
-        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency"
+        "backend/tests/p03_04.rs::http_cancel_route_serves_holder_with_idempotency",
+        "backend/tests/p03_06.rs::independent_connections_race_for_last_units",
+        "backend/tests/p03_06.rs::reserve_cancel_race_keeps_everything_in_agreement",
+        "backend/tests/p03_06.rs::cancel_expiry_race_disposes_or_releases_exactly_once",
+        "backend/tests/p03_06.rs::three_way_cap_race_admits_exactly_the_remaining_slots",
+        "backend/tests/p03_06.rs::identical_key_race_persists_a_single_identity",
+        "backend/tests/p03_06.rs::mixed_lifecycle_matrix_reconciles_end_to_end"
       ],
       "evidence_kind": "reservation_replay_coverage",
       "verification": null,

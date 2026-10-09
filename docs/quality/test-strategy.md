@@ -32,6 +32,10 @@ Current launch scope is ADR-002. Test only active behavior and the active portio
 13. Fake coverage/phase completion: executable domain mapping, test node existence, real exit results, remote-tip/CI confirmation, and explicit blocked status.
 14. Accidental scope growth: allowed-path diff check, task exclusions, decision log, and one-task commits.
 
+## Reservation contention and rollback matrix (P03-06)
+
+`backend/tests/p03_06.rs` exercises confirm/cancel/expiry races on real PostgreSQL 18.6 through independent connection pools to the same database: last-unit races across connections, reserve-vs-cancel and cancel-vs-expiry agreement, three-way cap contention, identical-key races, and a mixed-lifecycle reconciliation asserting that persisted units, reservation states, immutable snapshots and audit events agree. Batch-level rollback after bucket mutation is covered by the corrupted-row case in `p03_05.rs`; per-command rejections across `p03_01`–`p03_05` assert zero side effects (no rows, no audit, conserved buckets), which is the rollback leg for commands whose fallible checks all precede the first write.
+
 ## Release requirements
 
 All active EDGE scenarios and active portions of mixed cases require substantive assertions. Active INV and UC items require mapped tests and explicit operational checks. The full 147-ID catalog remains available, but deferred items do not block launch and cannot be falsely marked verified. The catalog distinguishes implemented from verified and reports pending operational readiness rather than declaring universal coverage.

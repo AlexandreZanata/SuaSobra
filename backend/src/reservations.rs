@@ -684,14 +684,28 @@ pub async fn expire_due(pool: &PgPool, now: DateTime<Utc>) -> Result<ExpiryRepor
     };
 
     // Offers before reservations (authority order), each set in deterministic
-    // ID order so concurrent runs cannot deadlock.
-    let due_offers: Vec<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT id, available_quantity, policy_version FROM suasobra.offers WHERE status IN ('published','scheduled') AND pickup_ends_at IS NOT NULL AND pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
+    // ID order so concurrent runs cannot deadlock. Every row is re-read and
+    // re-validated under its lock: a concurrent withdraw/cancel that commits
+    // first makes the row simply skipped instead of double-disposed.
+    let due_offers: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM suasobra.offers WHERE status IN ('published','scheduled') AND pickup_ends_at IS NOT NULL AND pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
     )
     .bind(now)
     .fetch_all(&mut *tx)
     .await?;
-    for (offer_id, available, policy_version) in due_offers {
+    for offer_id in due_offers {
+        let fresh: Option<(String, i64, String)> = sqlx::query_as(
+            "SELECT status, available_quantity, policy_version FROM suasobra.offers WHERE id=$1 FOR UPDATE",
+        )
+        .bind(offer_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((status, available, policy_version)) = fresh else {
+            continue;
+        };
+        if status != "published" && status != "scheduled" {
+            continue;
+        }
         let new_available = 0;
         let disposed_add = available;
         sqlx::query(
@@ -728,13 +742,25 @@ pub async fn expire_due(pool: &PgPool, now: DateTime<Utc>) -> Result<ExpiryRepor
         report.units_disposed += disposed_add as u64;
     }
 
-    let due_reservations: Vec<(Uuid, Uuid, i64, String)> = sqlx::query_as(
-        "SELECT id, offer_id, quantity, accepted_policy_version FROM suasobra.reservations WHERE status='confirmed' AND accepted_pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
+    let due_reservations: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM suasobra.reservations WHERE status='confirmed' AND accepted_pickup_ends_at <= $1 ORDER BY id FOR UPDATE",
     )
     .bind(now)
     .fetch_all(&mut *tx)
     .await?;
-    for (reservation_id, offer_id, quantity, policy_version) in due_reservations {
+    for reservation_id in due_reservations {
+        let fresh: Option<(Uuid, String, i64, String)> = sqlx::query_as(
+            "SELECT offer_id, status, quantity, accepted_policy_version FROM suasobra.reservations WHERE id=$1 FOR UPDATE",
+        )
+        .bind(reservation_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((offer_id, status, quantity, policy_version)) = fresh else {
+            continue;
+        };
+        if status != "confirmed" {
+            continue;
+        }
         let committed: Option<i64> = sqlx::query_scalar(
             "SELECT committed_quantity FROM suasobra.offers WHERE id=$1 FOR UPDATE",
         )
